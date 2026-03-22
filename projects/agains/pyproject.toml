@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agains"
+version = "0.1.0"
+description = "Adaptive Gradient Attention for Neural Systems"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Research Author", email = "research@example.com"}]
+keywords = ["machine-learning", "attention", "gradient-optimization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = ["numpy>=1.24.0", "torch>=2.0.0"]

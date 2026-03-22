@@ -1,0 +1,215 @@
+======================================================================
+COMPREHENSIVE TEST RESULTS
+======================================================================
+Generated: 2026-02-16 13:47:30
+
+
+======================================================================
+Package: AI Hub Core
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  tests/test_api.py::TestAPI::test_root [32mPASSED[0m[33m                             [  9%][0m
+  tests/test_api.py::TestAPI::test_status_no_model [32mPASSED[0m[33m                  [ 18%][0m
+  tests/test_api.py::TestAPI::test_train [32mPASSED[0m[33m                            [ 27%][0m
+  tests/test_api.py::TestAPI::test_predict_without_training [32mPASSED[0m[33m         [ 36%][0m
+  tests/test_api.py::TestAPI::test_train_and_predict [32mPASSED[0m[33m                [ 45%][0m
+  tests/test_api.py::TestAPI::test_save_and_list_models [32mPASSED[0m[33m             [ 54%][0m
+  tests/test_ml_engine.py::TestMLEngine::test_initialization [32mPASSED[0m[33m        [ 63%][0m
+  tests/test_ml_engine.py::TestMLEngine::test_train [32mPASSED[0m[33m                 [ 72%][0m
+  tests/test_ml_engine.py::TestMLEngine::test_predict [32mPASSED[0m[33m               [ 81%][0m
+  tests/test_ml_engine.py::TestMLEngine::test_evaluate [32mPASSED[0m[33m              [ 90%][0m
+  tests/test_ml_engine.py::TestMLEngine::test_save_load [32mPASSED[0m[33m             [100%][0m
+
+
+======================================================================
+Package: ACCA Framework
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  projects/acca/tests/test_core.py::TestCoreModule::test_initialization [32mPASSED[0m[32m [ 50%][0m
+  projects/acca/tests/test_core.py::TestCoreModule::test_forward [32mPASSED[0m[32m    [100%][0m
+
+
+======================================================================
+Package: ACML
+Status: FAIL
+Tests: 0 passed, 0 failed, 2 errors
+----------------------------------------------------------------------
+
+Output:
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /home/runner/workspace/.pythonlibs/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/runner/workspace/Advanced-Research
+configfile: pyproject.toml
+plugins: anyio-4.12.1, mock-3.15.1, cov-7.0.0, asyncio-1.3.0, langsmith-0.7.3
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+[1mcollecting ... [0mcollected 31 items / 1 error
+
+==================================== ERRORS ====================================
+[31m[1m___________ ERROR collecting Ideas/projects/acml/tests/test_acml.py ____________[0m
+[31mImportError while importing test module '/home/runner/workspace/Advanced-Research/Ideas/projects/acml/tests/test_acml.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+.pythonlibs/lib/python3.11/site-packages/_pytest/python.py:507: in importtestmodule
+    mod = import_path(
+.pythonlibs/lib/python3.11/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+/nix/store/6334pjf6w2q623rgvwi499qaiym1p6yv-python3-3.11.14/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+.pythonlibs/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+Advanced-Research/Ideas/projects/acml/tests/test_acml.py:6: in <module>
+    from acml import (
+E   ModuleNotFoundError: No module named 'acml'[0m
+[36m[1m=========================== short test summary info ============================[0m
+[31mERROR[0m Advanced-Research/Ideas/projects/acml/tests/test_acml.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+[31m=============================== [31m[1m1 error[0m[31m in 1.83s[0m[31m ===============================[0m
+
+
+======================================================================
+Package: Aether-Calc
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherConfig::test_default_config [32mPASSED[0m[32m [  7%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherConfig::test_custom_config [32mPASSED[0m[32m [ 15%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherOptimizer::test_initialization [32mPASSED[0m[32m [ 23%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherOptimizer::test_zero_grad [32mPASSED[0m[32m [ 30%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherOptimizer::test_compute_volatility_zero_grad [32mPASSED[0m[32m [ 38%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherOptimizer::test_compute_volatility_nonzero [32mPASSED[0m[32m [ 46%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherOptimizer::test_pid_update [32mPASSED[0m[32m [ 53%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestAetherOptimizer::test_step_standard_mode [32mPASSED[0m[32m [ 61%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestVolatilitySurface::test_initialization [32mPASSED[0m[32m [ 69%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestGranularArithmeticUnit::test_initialization [32mPASSED[0m[32m [ 76%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestGranularArithmeticUnit::test_add_without_noise [32mPASSED[0m[32m [ 84%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestGranularArithmeticUnit::test_multiply [32mPASSED[0m[32m [ 92%][0m
+  Advanced-Research/Ideas/projects/aether_calc/tests/test_comprehensive.py::TestGranularArithmeticUnit::test_normalize [32mPASSED[0m[32m [100%][0m
+
+
+======================================================================
+Package: GAAV
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_initialization_float [32mPASSED[0m[32m [  6%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_initialization_tensor [32mPASSED[0m[32m [ 12%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_confidence_gaussian [32mPASSED[0m[32m [ 18%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_confidence_interval [32mPASSED[0m[32m [ 25%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_sample_gaussian [32mPASSED[0m[32m [ 31%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_sample_interval [32mPASSED[0m[32m [ 37%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranule::test_to_dict [32mPASSED[0m[32m [ 43%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_add_same_context [32mPASSED[0m[32m [ 50%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_add_different_context [32mPASSED[0m[32m [ 56%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_multiply [32mPASSED[0m[32m [ 62%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_subtract [32mPASSED[0m[32m [ 68%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_divide [32mPASSED[0m[32m [ 75%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_context_fusion_same [32mPASSED[0m[32m [ 81%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestGranularOperators::test_context_fusion_different [32mPASSED[0m[32m [ 87%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestIntegration::test_chain_operations [32mPASSED[0m[32m [ 93%][0m
+  Advanced-Research/Ideas/projects/gaav/tests/test_comprehensive.py::TestIntegration::test_uncertainty_propagation [32mPASSED[0m[32m [100%][0m
+
+
+======================================================================
+Package: GAFT
+Status: FAIL
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_initialization [32mPASSED[0m[32m [  4%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_update_position [32mPASSED[0m[32m [  9%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_interaction_potential_same_position [32mPASSED[0m[32m [ 13%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_interaction_potential_far_apart [32mPASSED[0m[32m [ 18%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_type_compatibility_value_operator [32mPASSED[0m[32m [ 22%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_type_compatibility_value_value [32mPASSED[0m[32m [ 27%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_interaction_probability [32mPASSED[0m[32m [ 31%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_transition_state [32mPASSED[0m[32m [ 36%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_decay [32mPASSED[0m[32m [ 40%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_is_stable [32mPASSED[0m[32m [ 45%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicGranule::test_to_dict [32mPASSED[0m[32m [ 50%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicField::test_initialization [32mPASSED[0m[32m [ 54%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicField::test_add_granule [32mPASSED[0m[32m [ 59%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicField::test_add_granule_bounds_clipping [32mPASSED[0m[32m [ 63%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicField::test_get_nearby_granules [32mPASSED[0m[32m [ 68%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicField::test_step [32mPASSED[0m[32m [ 72%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestArithmonicField::test_compute_total_coherence [32mPASSED[0m[32m [ 77%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestGranularSimulation::test_initialization [32mPASSED[0m[32m [ 81%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestGranularSimulation::test_granularize_expression [32mPASSED[0m[32m [ 86%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestGranularSimulation::test_run_simulation [32mPASSED[0m[32m [ 90%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestGranularSimulation::test_get_final_result [31mFAILED[0m[31m [ 95%][0m
+  Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::TestIntegration::test_end_to_end_addition [32mPASSED[0m[31m [100%][0m
+  [31mFAILED[0m Advanced-Research/Ideas/projects/gaft/tests/test_comprehensive.py::[1mTestGranularSimulation::test_get_final_result[0m - assert 5 == 8
+
+
+======================================================================
+Package: CNM
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMInitialization::test_default_initialization [32mPASSED[0m[32m [ 14%][0m
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMInitialization::test_custom_initialization [32mPASSED[0m[32m [ 28%][0m
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMForward::test_forward_shape [32mPASSED[0m[32m [ 42%][0m
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMForward::test_forward_batch [32mPASSED[0m[32m [ 57%][0m
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMForward::test_forward_values [32mPASSED[0m[32m [ 71%][0m
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMLoss::test_loss_computation [32mPASSED[0m[32m [ 85%][0m
+  Advanced-Research/Ideas/projects/cnm/tests/test_comprehensive.py::TestCNMLoss::test_loss_gradients [32mPASSED[0m[32m [100%][0m
+
+
+======================================================================
+Package: HNMA
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/hnma/tests/test_hnma.py::TestHNMAInitialization::test_default_initialization [32mPASSED[0m[32m [ 25%][0m
+  Advanced-Research/Ideas/projects/hnma/tests/test_hnma.py::TestHNMAInitialization::test_custom_initialization [32mPASSED[0m[32m [ 50%][0m
+  Advanced-Research/Ideas/projects/hnma/tests/test_hnma.py::TestHNMAForward::test_forward_shape [32mPASSED[0m[32m [ 75%][0m
+  Advanced-Research/Ideas/projects/hnma/tests/test_hnma.py::TestHNMAForward::test_forward_batch_sizes [32mPASSED[0m[32m [100%][0m
+
+
+======================================================================
+Package: MCAF
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/mcaf/tests/test_mcaf.py::TestMCAFInitialization::test_default_initialization [32mPASSED[0m[32m [ 50%][0m
+  Advanced-Research/Ideas/projects/mcaf/tests/test_mcaf.py::TestMCAFForward::test_forward_shape [32mPASSED[0m[32m [100%][0m
+
+
+======================================================================
+Package: NEWNN
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/newnn/tests/test_newnn.py::TestNEWNNInitialization::test_default_initialization [32mPASSED[0m[32m [ 33%][0m
+  Advanced-Research/Ideas/projects/newnn/tests/test_newnn.py::TestNEWNNForward::test_forward_shape [32mPASSED[0m[32m [ 66%][0m
+  Advanced-Research/Ideas/projects/newnn/tests/test_newnn.py::TestNEWNNForward::test_edge_weights [32mPASSED[0m[32m [100%][0m
+
+
+======================================================================
+Package: GCAA
+Status: PASS
+Tests: 0 passed, 0 failed, 0 errors
+----------------------------------------------------------------------
+Test Details:
+  Advanced-Research/Ideas/projects/gcaa/tests/test_gcaa.py::TestGCAAInitialization::test_default_initialization [32mPASSED[0m[32m [ 50%][0m
+  Advanced-Research/Ideas/projects/gcaa/tests/test_gcaa.py::TestGCAAForward::test_forward_shape [32mPASSED[0m[32m [100%][0m
+

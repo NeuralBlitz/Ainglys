@@ -1,0 +1,353 @@
+# AI Hub Platform - Docker Deployment
+# Complete production-grade deployment configuration
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Main API Server
+  # ============================================================================
+  ai-hub-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ai-hub-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - MODEL_REGISTRY_DIR=/app/models/registry
+      - EXPERIMENT_DIR=/app/experiments
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - API_RATE_LIMIT=1000/hour
+      - AI_HUB_ENV=production
+      - AI_HUB_LOG_LEVEL=info
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./models:/app/models
+      - ./experiments:/app/experiments
+      - ./outputs:/app/outputs
+      - ./config:/app/config
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    depends_on:
+      - postgres
+      - redis
+      - mlflow
+
+  # ============================================================================
+  # Model Serving Service
+  # ============================================================================
+  model-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ai-hub-serving
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONPATH=/app
+      - MODEL_REGISTRY_DIR=/app/models/registry
+      - SERVING_PORT=8080
+      - BATCH_SIZE=32
+      - MAX_LATENCY_MS=100
+      - ENABLE_BATCHING=true
+    volumes:
+      - ./models:/app/models:ro
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+    depends_on:
+      - ai-hub-api
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # Ray Cluster Head (Distributed Training)
+  # ============================================================================
+  ray-head:
+    build:
+      context: .
+      dockerfile: Dockerfile.ray
+    container_name: ray-head
+    ports:
+      - "6379:6379"
+      - "8265:8265"  # Ray Dashboard
+      - "10001:10001"
+    environment:
+      - PYTHONPATH=/app
+      - RAY_ADDRESS=ray-head:6379
+    command: >
+      ray start --head --port=6379
+      --dashboard-host=0.0.0.0
+      --dashboard-port=8265
+      --num-cpus=4
+      --num-gpus=0
+      --block
+    volumes:
+      - ./src:/app/src
+      - ./outputs:/app/outputs
+    networks:
+      - ai-hub-network
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+
+  # ============================================================================
+  # Ray Worker Nodes
+  # ============================================================================
+  ray-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.ray
+    environment:
+      - PYTHONPATH=/app
+      - RAY_ADDRESS=ray-head:6379
+    command: >
+      bash -c "sleep 10 &&
+      ray start --address=ray-head:6379
+      --num-cpus=2
+      --num-gpus=0
+      --block"
+    volumes:
+      - ./src:/app/src
+      - ./outputs:/app/outputs
+    networks:
+      - ai-hub-network
+    depends_on:
+      - ray-head
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    restart: unless-stopped
+
+  # ============================================================================
+  # MLflow Tracking Server
+  # ============================================================================
+  mlflow:
+    image: python:3.11-slim
+    container_name: ai-hub-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://aihub:aihub123@postgres:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - ./mlflow:/mlflow
+    command: >
+      bash -c "pip install mlflow psycopg2-binary &&
+      mlflow server
+      --backend-store-uri postgresql://aihub:aihub123@postgres:5432/mlflow
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000"
+    networks:
+      - ai-hub-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ============================================================================
+  # PostgreSQL for Metadata and Experiments
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-hub-postgres
+    environment:
+      - POSTGRES_USER=aihub
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-aihub123}
+      - POSTGRES_DB=aihub
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aihub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # Redis for Caching and Rate Limiting
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ai-hub-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # Nginx Load Balancer and Reverse Proxy
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: ai-hub-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - ai-hub-api
+      - model-server
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Monitoring - Prometheus
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ai-hub-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # Monitoring - Grafana
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ai-hub-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - ai-hub-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # ============================================================================
+  # Development Environment with Jupyter
+  # ============================================================================
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ai-hub-dev
+    ports:
+      - "8888:8888"
+      - "8001:8000"
+    environment:
+      - AI_HUB_ENV=development
+      - AI_HUB_LOG_LEVEL=debug
+      - JUPYTER_ENABLE_LAB=yes
+    volumes:
+      - .:/app
+      - ./models:/app/models
+      - ./notebooks:/app/notebooks
+      - ./config:/app/config
+    command: >
+      bash -c "
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+        --NotebookApp.token='' --NotebookApp.password='' &
+        uvicorn ai_hub.api:app --host 0.0.0.0 --port 8000 --reload
+      "
+    networks:
+      - ai-hub-network
+    profiles:
+      - dev
+
+  # ============================================================================
+  # Testing Service
+  # ============================================================================
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ai-hub-test
+    volumes:
+      - .:/app
+      - ./test-results:/app/test-results
+    command: >
+      bash -c "
+        pytest tests/ -v --cov=src --cov-report=html --cov-report=xml
+        --junitxml=test-results/junit.xml || true
+      "
+    networks:
+      - ai-hub-network
+    profiles:
+      - testing
+
+networks:
+  ai-hub-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  models:
+  config:
