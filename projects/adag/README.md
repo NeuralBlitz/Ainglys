@@ -1,9 +1,9 @@
-```markdown
+
 # Interdisciplinary Synthesis of Novel Machine Learning Frameworks: A Mathematical Blueprint for Attention-Driven Architectures  
 **PhD Thesis Proposal**  
-*Author: [Your Name]*  
-*Institution: [Your University]*  
-*Date: [Submission Date]*  
+*Author: Nural Nexus*  
+*Institution: MeuralBlitz*  
+
 
 ---
 
@@ -18,17 +18,21 @@ This thesis proposes a **mathematical framework** for designing **attention-driv
 
 ## 1. Problem Formulation  
 ### 1.1 Mathematical Definition  
-Let $\mathcal{M}$ denote the space of machine learning models, where each $m \in \mathcal{M}$ is parameterized by $\theta \in \Theta$. Define the **attention operator** $\mathcal{A}: \mathbb{R}^{n \times d} \to \mathbb{R}^{n \times d}$ as:  
+Let $\mathcal{M}$ denote the space of machine learning models, where each $m \in \mathcal{M}$ is parameterized by $\theta \in \Theta$. Define the **attention operator** $\mathcal{A}: \mathbb{R}^{n \times d} \to \mathbb{R}^{n \times d}$ as:
+
 $$
 \mathcal{A}(X) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
 $$  
+
 where $Q, K, V \in \mathbb{R}^{n \times d_k}$ are query, key, and value matrices.  
 
 **Lemma 1 (Attention Invariance)**:  
 The attention operator is invariant to affine transformations of the input space:  
+
 $$
 \mathcal{A}(WX + b) = W\mathcal{A}(X) + b \quad \forall W \in GL(d), b \in \mathbb{R}^d
 $$  
+
 *Proof*: Follows from linearity of matrix multiplication and softmax normalization.  
 
 ---
@@ -37,9 +41,11 @@ $$
 
 ### 2.1 Tensor Algebra Foundation  
 Define the **attention manifold** $\mathcal{A}_d$ as the set of all valid attention matrices:  
+
 $$
 \mathcal{A}_d = \left\{ A \in \mathbb{R}^{n \times n} \mid A_{ij} = \frac{\exp(Q_i K_j^T)}{\sum_{k=1}^n \exp(Q_i K_k^T)} \right\}
 $$  
+
 **Theorem 1 (Manifold Dimensionality)**:  
 The dimension of $\mathcal{A}_d$ is $O(n^2)$, but its intrinsic dimensionality is $O(n)$ due to softmax constraints.  
 
@@ -49,9 +55,11 @@ The dimension of $\mathcal{A}_d$ is $O(n^2)$, but its intrinsic dimensionality i
 
 ### 2.2 Architecture Search Space  
 Formulate neural architecture search as an optimization problem:  
+
 $$
 \min_{\alpha \in \mathcal{A}} \mathbb{E}_{(x,y) \sim \mathcal{D}}[L(f_\alpha(x), y)] + \lambda \Omega(\alpha)
 $$  
+
 where $\alpha$ represents architectural parameters, $L$ is the loss function, and $\Omega$ is a regularization term.  
 
 **Algorithm 1: Gradient-Based Architecture Search**  
@@ -75,9 +83,11 @@ def gradient_search(D_train, D_val, epochs):
 
 ### 3.1 Category Theory Mappings  
 Define functors between domains:  
+
 $$
 F: \text{NLP} \to \text{Computer Vision}, \quad F(\text{word embedding}) = \text{CNN feature map}
 $$  
+
 **Proposition 1**:  
 The functor preserves attention structures up to homeomorphism.  
 
@@ -87,9 +97,11 @@ The functor preserves attention structures up to homeomorphism.
 
 ### 3.2 Workflow Orchestration  
 Model automation workflows as **Markov Decision Processes** (MDPs):  
+
 $$
 \mathcal{W} = (\mathcal{S}, \mathcal{A}, P, R, γ)
 $$  
+
 where:  
 - $\mathcal{S}$: States (data preprocessing, model training, deployment)  
 - $\mathcal{A}$: Actions (hyperparameter tuning, scaling decisions)  
@@ -153,9 +165,11 @@ This work establishes a **mathematical foundation** for attention-driven ML fram
 ## Appendix: Formal Proofs  
 **Proof of Lemma 1**:  
 Let $X' = WX + b$. Then:  
+
 $$
 \mathcal{A}(X') = \text{softmax}\left(\frac{(WQ)(WK)^T}{\sqrt{d_k}}\right)(WV)
 $$  
+
 Using associativity of matrix multiplication and softmax properties, this simplifies to $W\mathcal{A}(X) + b$.  
 
 **Proof of Theorem 1**:  
