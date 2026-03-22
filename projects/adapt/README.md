@@ -112,6 +112,7 @@ $$
 Let $\mathbb{G}$ be the set of all granular numbers. Define binary operations:
 
 **Addition ($\oplus$):**
+
 $$
 x^\gamma \oplus y^\gamma := 
 \left(
@@ -124,6 +125,7 @@ c_x \cup c_y,
 $$
 
 **Multiplication ($\otimes$):**
+
 $$
 x^\gamma \otimes y^\gamma := 
 \left(
@@ -164,6 +166,7 @@ Let $\mathbf{CompGraph}$ be a symmetric monoidal category where:
   - Evolution level $\ell(f) \in \mathbb{Z}^+$
 
 We grade morphisms by **adaptivity level** $\ell$, forming a filtration:
+
 $$
 \cdots \hookrightarrow \mathcal{F}_{\ell-1} \hookrightarrow \mathcal{F}_\ell \hookrightarrow \mathcal{F}_{\ell+1} \hookrightarrow \cdots
 $$
