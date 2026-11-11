@@ -1,11 +1,12 @@
 import os
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 import torch
 import json
 from .ml_engine import MLEngine
+from .api_auth import require_api_key, validate_model_name
 from pathlib import Path
 
 app = FastAPI(title="AI Hub API", version="0.1.0")
@@ -22,21 +23,33 @@ class TrainRequest(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
 
-    @validator("epochs")
-    def epochs_positive(cls, v):
-        if v <= 0:
-            raise ValueError("epochs must be positive")
-        return v
+    @field_validator("input_dim", "hidden_dim", "output_dim", "epochs")
+    @classmethod
+    def bounded_training(cls, value, info):
+        limits = {"input_dim": 512, "hidden_dim": 1024, "output_dim": 128, "epochs": 20}
+        if not 1 <= value <= limits[info.field_name]:
+            raise ValueError(f"{info.field_name} must be between 1 and {limits[info.field_name]}")
+        return value
+
+    @field_validator("learning_rate")
+    @classmethod
+    def bounded_learning_rate(cls, value):
+        if not 1e-7 <= value <= 1:
+            raise ValueError("learning_rate must be between 1e-7 and 1")
+        return value
 
 
 class PredictRequest(BaseModel):
     data: List[List[float]]
 
-    @validator("data")
-    def data_not_empty(cls, v):
-        if not v:
-            raise ValueError("data cannot be empty")
-        return v
+    @field_validator("data")
+    @classmethod
+    def data_not_empty(cls, value):
+        if not value or len(value) > 256 or any(not row or len(row) > 512 for row in value):
+            raise ValueError("data must contain 1-256 rows of 1-512 features")
+        if len({len(row) for row in value}) != 1:
+            raise ValueError("every row must contain the same number of features")
+        return value
 
 
 class SaveRequest(BaseModel):
@@ -53,7 +66,7 @@ def root():
     }
 
 
-@app.get("/status")
+@app.get("/status", dependencies=[Depends(require_api_key)])
 def status():
     return {
         "trained": engine is not None and engine.is_trained,
@@ -62,7 +75,7 @@ def status():
     }
 
 
-@app.post("/train")
+@app.post("/train", dependencies=[Depends(require_api_key)])
 def train(request: TrainRequest):
     global engine
     try:
@@ -89,7 +102,7 @@ def train(request: TrainRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(require_api_key)])
 def predict(request: PredictRequest):
     global engine
     if engine is None or not engine.is_trained:
@@ -120,14 +133,15 @@ def predict(request: PredictRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/save")
+@app.post("/save", dependencies=[Depends(require_api_key)])
 def save_model(request: SaveRequest):
     global engine
     if engine is None or not engine.is_trained:
         raise HTTPException(status_code=400, detail="No trained model to save")
 
     try:
-        model_path = MODELS_DIR / f"{request.model_name}.pt"
+        model_name = validate_model_name(request.model_name)
+        model_path = MODELS_DIR / f"{model_name}.pt"
         engine.save(str(model_path))
 
         metadata = {
@@ -137,7 +151,7 @@ def save_model(request: SaveRequest):
             "output_dim": engine.model.layers[2].out_features,
         }
 
-        metadata_path = MODELS_DIR / f"{request.model_name}.json"
+        metadata_path = MODELS_DIR / f"{model_name}.json"
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
@@ -146,10 +160,11 @@ def save_model(request: SaveRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/load/{model_name}")
+@app.post("/load/{model_name}", dependencies=[Depends(require_api_key)])
 def load_model(model_name: str):
     global engine
     try:
+        validate_model_name(model_name)
         model_path = MODELS_DIR / f"{model_name}.pt"
         metadata_path = MODELS_DIR / f"{model_name}.json"
 
@@ -171,7 +186,7 @@ def load_model(model_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/models")
+@app.get("/models", dependencies=[Depends(require_api_key)])
 def list_models():
     models = []
     for model_file in MODELS_DIR.glob("*.pt"):
@@ -187,9 +202,10 @@ def list_models():
     return {"models": models, "count": len(models)}
 
 
-@app.delete("/models/{model_name}")
+@app.delete("/models/{model_name}", dependencies=[Depends(require_api_key)])
 def delete_model(model_name: str):
     try:
+        validate_model_name(model_name)
         model_path = MODELS_DIR / f"{model_name}.pt"
         metadata_path = MODELS_DIR / f"{model_name}.json"
 
