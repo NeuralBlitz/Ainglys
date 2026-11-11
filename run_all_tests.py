@@ -78,8 +78,18 @@ def run_tests(package):
     test_path = Path(package["path"])
 
     if not test_path.exists():
-        print(f"⚠️  Test directory not found: {test_path}")
-        return None
+        message = f"Required test directory not found: {test_path}"
+        print(f"❌ {message}")
+        return {
+            "name": package["name"],
+            "returncode": 2,
+            "passed": 0,
+            "failed": 0,
+            "errors": 1,
+            "total": 1,
+            "output": message,
+            "tests": [],
+        }
 
     # Run pytest with coverage
     cmd = [
