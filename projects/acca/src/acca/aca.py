@@ -44,7 +44,7 @@ class CausalDiscovery(nn.Module):
         """
         batch_size = x.shape[0]
 
-        encoded = self.encoder(x.mean(dim=-1))
+        encoded = self.encoder(x.mean(dim=1))
         adj_matrix = encoded.view(batch_size, self.num_variables, self.num_variables)
         adj_matrix = torch.sigmoid(adj_matrix)
 
@@ -64,13 +64,12 @@ class CausalDiscovery(nn.Module):
         Returns:
             Loss value
         """
-        reconstruction = torch.matmul(
-            torch.matmul(x, adj_pred), adj_pred.transpose(-2, -1)
-        )
+        # Adjacency maps nodes, not feature dimensions.
+        reconstruction = torch.matmul(adj_pred, x)
 
         reconstruction_loss = nn.functional.mse_loss(reconstruction, x)
 
-        sparsity_loss = lambda_sparse * torch.sum(torch.abs(adj_pred))
+        sparsity_loss = lambda_sparse * torch.mean(torch.abs(adj_pred))
 
         return reconstruction_loss + sparsity_loss
 
@@ -215,11 +214,14 @@ class AttentiveCausalAutomata(nn.Module):
                 causal_structure, node_features
             )
 
-            topology_loss = -torch.sum(
-                torch.log(causal_structure + 1e-8) * causal_structure
+            # Tie topology logits to the inferred causal structure so the
+            # TopologyOptimizer receives actual gradients from this objective.
+            optimized_topology = self.topology_optimizer()
+            topology_target = causal_structure.mean(dim=0).detach()
+            topology_loss = nn.functional.mse_loss(
+                optimized_topology, topology_target
             )
-
-            total_loss = causal_loss + 0.1 * topology_loss
+            total_loss = causal_loss + topology_loss + 0.01 * optimized_topology.mean()
             total_loss.backward()
             optimizer.step()
 
