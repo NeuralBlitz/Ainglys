@@ -1,6 +1,10 @@
 import click
 import torch
 import requests
+import os
+
+_api_session = requests.Session()
+_api_session.headers.update({"X-API-Key": os.environ.get("AI_HUB_API_KEY", "")})
 import json
 from rich.console import Console
 from rich.table import Table
@@ -107,7 +111,7 @@ def train_model(input_dim, hidden_dim, output_dim, epochs, api):
         ) as progress:
             task = progress.add_task(description="Training via API...", total=None)
             try:
-                response = requests.post(
+                response = _api_session.post(
                     f"{API_BASE_URL}/train",
                     json={
                         "input_dim": input_dim,
@@ -170,7 +174,7 @@ def predict_model(data, file):
         return
 
     try:
-        response = requests.post(f"{API_BASE_URL}/predict", json={"data": input_data})
+        response = _api_session.post(f"{API_BASE_URL}/predict", json={"data": input_data})
         response.raise_for_status()
         result = response.json()
 
@@ -199,7 +203,7 @@ def predict_model(data, file):
 def save_model(name):
     """Save the current model."""
     try:
-        response = requests.post(f"{API_BASE_URL}/save", json={"model_name": name})
+        response = _api_session.post(f"{API_BASE_URL}/save", json={"model_name": name})
         response.raise_for_status()
         result = response.json()
         console.print(f"[bold green]Model saved:[/bold green] {result['model_path']}")
@@ -216,7 +220,7 @@ def save_model(name):
 def load_model(name):
     """Load a saved model."""
     try:
-        response = requests.post(f"{API_BASE_URL}/load/{name}")
+        response = _api_session.post(f"{API_BASE_URL}/load/{name}")
         response.raise_for_status()
         result = response.json()
         console.print(f"[bold green]Model loaded:[/bold green] {result['model_name']}")
@@ -234,7 +238,7 @@ def load_model(name):
 def list_models():
     """List all saved models."""
     try:
-        response = requests.get(f"{API_BASE_URL}/models")
+        response = _api_session.get(f"{API_BASE_URL}/models")
         response.raise_for_status()
         result = response.json()
 
@@ -286,7 +290,7 @@ def start_api(port, host, reload):
 def api_status():
     """Check API server status."""
     try:
-        response = requests.get(f"{API_BASE_URL}/")
+        response = _api_session.get(f"{API_BASE_URL}/")
         response.raise_for_status()
         result = response.json()
 
