@@ -1,5 +1,8 @@
 # AI Hub - Advanced ML Research Platform
 
+> **Release status (2026-11-11):** Research software under active security and reliability remediation. Do not expose the API or training services publicly until deployment security and full CI have been independently validated. Historic test and coverage claims below are not current proof of release readiness. See [remediation pull request #2](https://github.com/NeuralBlitz/Ainglys/pull/2).
+
+
 [![Tests](https://img.shields.io/badge/tests-170%2B%20passing-brightgreen)](TEST_REPORT_FINAL.md)
 [![Packages](https://img.shields.io/badge/packages-87-blue)](Advanced-Research/Ideas/projects/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
@@ -11,7 +14,7 @@ A unified AI/ML platform with CLI, REST API, ML components, and comprehensive vi
 
 ## Overview
 
-AI Hub is a production-ready machine learning platform that combines:
+AI Hub is a research-oriented machine learning platform that combines:
 - **ML Engine**: PyTorch-based training with the ACCA framework
 - **REST API**: FastAPI service for model management
 - **Async API**: WebSocket-based real-time training and collaboration
@@ -23,7 +26,7 @@ AI Hub is a production-ready machine learning platform that combines:
 - **Distributed Training**: Ray-based multi-node training
 - **AutoML**: Grid, Random, Bayesian, and Population-Based Training optimization
 - **Model Serving**: Dynamic batching, canary/blue-green deployments
-- **Comprehensive Testing**: 170+ tests with 95%+ coverage
+- **Automated Testing**: GitHub Actions smoke CI; full coverage remains unverified
 
 ## 🆕 What's New
 
@@ -72,7 +75,7 @@ AI Hub is a production-ready machine learning platform that combines:
 ### Platform Statistics
 - **21 Core Modules** (~9,500 lines)
 - **87 Research Packages** integrated
-- **170+ Tests** (95%+ coverage)
+- **Historical test reports** (current coverage unverified)
 - **48 Features** fully implemented
 - **Docker deployment** ready
 
@@ -129,6 +132,18 @@ AI Hub is a production-ready machine learning platform that combines:
 │  └─────────────┴──────────────┴──────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## API authentication (required)
+
+Sensitive API operations now require a server-configured API key. Set the same strong value in the API deployment and the CLI/Streamlit environment. The server intentionally refuses requests when the key is missing or shorter than 32 characters.
+
+```bash
+export AI_HUB_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+```
+
+For Docker Compose production deployment, also provision unique `JWT_SECRET_KEY`, `DB_PASSWORD` and `GRAFANA_PASSWORD` values in a securely managed environment. Do not commit these secrets. Do not run the optional Jupyter or internal data services on public interfaces.
+
+The API currently provides one shared-key authorization boundary, not a production-grade multi-user identity service. Granular roles, quotas, and stronger identity integration remain outstanding.
 
 ## Installation
 
@@ -213,16 +228,18 @@ uvicorn ai_hub.api:app --port 8000
 
 # Train
 curl -X POST http://localhost:8000/train \
+  -H "X-API-Key: $AI_HUB_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"epochs": 10, "input_dim": 128, "hidden_dim": 256, "output_dim": 10}'
 
 # Predict
 curl -X POST http://localhost:8000/predict \
+  -H "X-API-Key: $AI_HUB_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"data": [[0.1, 0.2, 0.3]]}'
 
 # List models
-curl http://localhost:8000/models
+curl -H "X-API-Key: $AI_HUB_API_KEY" http://localhost:8000/models
 ```
 
 ### Advanced Visualization Example
@@ -444,7 +461,7 @@ See `Advanced-Research/Ideas/projects/` for the complete list of **87 research p
 - **4,500+ lines** of comprehensive test code
 - **170+ tests** with 95%+ pass rate
 - Mathematical foundations (category theory, information geometry, field theory)
-- Production-ready implementations with type hints and documentation
+- research-oriented implementations with type hints and documentation
 
 ### Featured New Packages
 
@@ -661,7 +678,7 @@ pytest tests/ --cov=src --cov-report=html
 - **170+ tests** (95%+ passing)
 - **9,500+ lines** of implementation
 - **5,000+ lines** of tests
-- **100% type hints** coverage
+- **Type hint coverage not yet measured**
 - **Comprehensive documentation**
 
 ## Docker Deployment
@@ -729,12 +746,12 @@ docker-compose logs -f ai-hub-api
 
 ⚠️ **Important**: Before deploying to production:
 
-1. **Authentication**: OAuth2/JWT is configured - update `JWT_SECRET_KEY`
+1. **Authentication**: Sensitive endpoints require a 32+-character `AI_HUB_API_KEY`; JWT helper functions are separate from the API route guard.
 2. **API Keys**: Use strong API keys for service accounts
-3. **Rate Limiting**: Configured by default - adjust limits as needed
-4. **Path Sanitization**: All file paths are validated
-5. **Secure torch.load()**: Use `weights_only=True` (implemented)
-6. **HTTPS**: Deploy API behind TLS termination (Nginx included)
+3. **Rate Limiting**: Full request quotas and persistent distributed rate limiting remain to be implemented.
+4. **Path Sanitization**: API model identifiers are validated; other file-processing modules require independent review.
+5. **Secure torch.load()**: Core model loading uses `weights_only=True`; audit all additional model/data loaders.
+6. **HTTPS**: TLS termination, restricted network access, and complete reverse-proxy configuration must be verified before public deployment.
 
 ## Development
 
@@ -785,7 +802,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## License
 
-MIT License - see LICENSE file for details
+A root LICENSE file is not currently tracked. Confirm intended license and add its full text before distribution.
 
 ## Citation
 
