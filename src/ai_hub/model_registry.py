@@ -260,7 +260,7 @@ class ModelRegistry:
         if not model_path.exists():
             raise ValueError(f"Model {model_name} version {version} not found")
 
-        state_dict = torch.load(model_path, map_location="cpu")
+        state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
 
         if model_class is not None:
             model = model_class()
