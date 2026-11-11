@@ -91,6 +91,7 @@ class TestAPI:
 class TestAPIAuthentication:
     def test_public_root_but_sensitive_status_requires_key(self):
         assert TestClient(app).get("/").status_code == 200
+        assert TestClient(app).get("/health").status_code == 200
         assert TestClient(app).get("/status").status_code == 401
         assert client.get("/status").status_code == 200
 
