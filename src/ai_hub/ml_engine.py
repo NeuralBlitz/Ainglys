@@ -13,7 +13,7 @@ class MLEngine:
         self.is_trained = False
 
     def train(
-        self, X: torch.Tensor, y: torch.Tensor, epochs: int = 10
+        self, X: torch.Tensor, y: torch.Tensor, epochs: int = 10, learning_rate: float = 0.001
     ) -> Dict[str, float]:
         X, y = X.to(self.device), y.to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
