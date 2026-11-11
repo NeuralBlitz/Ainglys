@@ -314,9 +314,12 @@ class TestSecurity:
         """Test password hashing and verification."""
         from ai_hub.security import verify_password
 
-        # Test with known hash
+        # Password hashing must be salted and no legacy unsalted hashes are accepted.
+        from ai_hub.security import hash_password
         password = "test123"
-        hashed = "9bc34549d565d2c9b66fb5c7c2e6a3b6"  # MD5 of test123
+        hashed = hash_password(password)
+        assert hashed != hash_password(password)
+        assert not verify_password(password, "9bc34549d565d2c9b66fb5c7c2e6a3b6")
 
         result = verify_password(password, hashed)
         assert result == True
@@ -326,24 +329,34 @@ class TestSecurity:
 
     def test_authenticate_user(self):
         """Test user authentication."""
-        from ai_hub.security import authenticate_user, fake_users_db
+        from ai_hub.security import authenticate_user, fake_users_db, hash_password
 
-        # Valid credentials
-        user = authenticate_user(fake_users_db, "admin", "admin123")
+        # No built-in user accounts are shipped.
+        assert fake_users_db == {}
+        sample_users = {
+            "admin": {
+                "username": "admin", "hashed_password": hash_password("temporary-test-password"),
+                "role": "admin", "scopes": ["read", "admin", "delete"]
+            }
+        }
+
+        # Valid credentials in a test-only user store
+        user = authenticate_user(sample_users, "admin", "temporary-test-password")
         assert user is not None
         assert user.username == "admin"
         assert user.role == "admin"
 
         # Invalid credentials
-        user = authenticate_user(fake_users_db, "admin", "wrong")
+        user = authenticate_user(sample_users, "admin", "wrong")
         assert user is None
 
         # Non-existent user
-        user = authenticate_user(fake_users_db, "nobody", "pass")
+        user = authenticate_user(sample_users, "nobody", "pass")
         assert user is None
 
-    def test_token_creation_and_verification(self):
+    def test_token_creation_and_verification(self, monkeypatch):
         """Test JWT token lifecycle."""
+        monkeypatch.setenv("JWT_SECRET_KEY", "test-only-jwt-secret-with-more-than-32-chars")
         # Create token
         token = create_access_token(
             data={"sub": "testuser", "scopes": ["read", "write"]}
@@ -383,26 +396,25 @@ class TestSecurity:
         assert allowed == True
 
     def test_user_roles_and_scopes(self):
-        """Test user roles and permission scopes."""
-        from ai_hub.security import get_user, fake_users_db
-
-        # Admin user
-        admin = get_user(fake_users_db, "admin")
-        assert admin.role == "admin"
-        assert "admin" in admin.scopes
-        assert "delete" in admin.scopes
-
-        # Researcher user
-        researcher = get_user(fake_users_db, "researcher")
-        assert researcher.role == "researcher"
-        assert "train" in researcher.scopes
-        assert "admin" not in researcher.scopes
-
-        # Regular user
-        user = get_user(fake_users_db, "user")
-        assert user.role == "user"
-        assert "read" in user.scopes
-        assert "write" not in user.scopes
+        """Check scopes on explicitly provisioned users."""
+        from ai_hub.security import get_user, hash_password
+        accounts = {
+            name: {
+                "username": name, "role": role, "scopes": scopes,
+                "hashed_password": hash_password("only-for-tests")
+            }
+            for name, role, scopes in [
+                ("admin", "admin", ["read", "write", "delete", "admin"]),
+                ("researcher", "researcher", ["read", "write", "train", "predict"]),
+                ("user", "user", ["read", "predict"]),
+            ]
+        }
+        admin = get_user(accounts, "admin")
+        researcher = get_user(accounts, "researcher")
+        user = get_user(accounts, "user")
+        assert admin.role == "admin" and "delete" in admin.scopes
+        assert researcher.role == "researcher" and "admin" not in researcher.scopes
+        assert user.role == "user" and "write" not in user.scopes
 
 
 class TestIntegration:
