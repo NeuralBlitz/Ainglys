@@ -3,7 +3,14 @@ from fastapi.testclient import TestClient
 from ai_hub.api import app
 
 
-client = TestClient(app)
+TEST_API_KEY = "test-security-api-key-with-32-characters-or-more"
+
+@pytest.fixture(autouse=True)
+def configured_api_key(monkeypatch):
+    monkeypatch.setenv("AI_HUB_API_KEY", TEST_API_KEY)
+
+
+client = TestClient(app, headers={"X-API-Key": TEST_API_KEY})
 
 
 class TestAPI:
@@ -79,3 +86,34 @@ class TestAPI:
         response = client.delete("/models/test_model")
         assert response.status_code == 200
         assert response.json()["status"] == "deleted"
+
+
+class TestAPIAuthentication:
+    def test_public_root_but_sensitive_status_requires_key(self):
+        assert TestClient(app).get("/").status_code == 200
+        assert TestClient(app).get("/status").status_code == 401
+        assert client.get("/status").status_code == 200
+
+    def test_wrong_key_rejected(self):
+        assert TestClient(app, headers={"X-API-Key": "invalid"}).get("/models").status_code == 401
+
+    def test_fail_closed_when_key_missing(self, monkeypatch):
+        monkeypatch.delenv("AI_HUB_API_KEY", raising=False)
+        assert client.get("/models").status_code == 503
+
+    def test_reject_model_path_traversal(self):
+        response = client.post("/train", json={"input_dim": 3, "hidden_dim": 4, "output_dim": 2, "epochs": 1})
+        assert response.status_code == 200
+        response = client.post("/save", json={"model_name": "../outside"})
+        assert response.status_code == 422
+        assert client.post("/load/%2e%2e", json={}).status_code in (404, 422)
+        assert client.delete("/models/%2e%2e").status_code in (404, 422)
+
+    def test_training_is_bounded(self):
+        assert client.post("/train", json={"input_dim": 100000}).status_code == 422
+        assert client.post("/train", json={"epochs": 100000}).status_code == 422
+        assert client.post("/train", json={"learning_rate": 0}).status_code == 422
+
+    def test_prediction_batch_is_bounded(self):
+        response = client.post("/predict", json={"data": [[0.0] * 600]})
+        assert response.status_code == 422
