@@ -13,12 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Copy package sources before installation; editable installs can mask broken images.
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install -e "."
-
-FROM base as production
-
 COPY src/ ./src/
+COPY projects/acca/src/ ./projects/acca/src/
+RUN python -m pip install --upgrade pip && python -m pip install --no-cache-dir .
+
+FROM base AS production
+
 COPY . .
 
 EXPOSE 8000 8501
@@ -28,9 +30,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 CMD ["sh", "-c", "ai-hub api start --host 0.0.0.0 --port 8000 & streamlit run src/ai_hub/web.py --server.port 8501 --server.address 0.0.0.0"]
 
-FROM base as development
+FROM base AS development
 
-RUN pip install -e ".[dev]" jupyter jupyterlab
+RUN python -m pip install --no-cache-dir '.[dev]' jupyter jupyterlab
+COPY . .
 
 EXPOSE 8000 8501 8888
 
