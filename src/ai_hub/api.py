@@ -84,7 +84,7 @@ def train(request: TrainRequest):
         X = torch.randn(1000, request.input_dim)
         y = torch.randint(0, request.output_dim, (1000,))
 
-        result = engine.train(X, y, request.epochs)
+        result = engine.train(X, y, request.epochs, learning_rate=request.learning_rate)
 
         eval_result = engine.evaluate(X[:100], y[:100])
 
