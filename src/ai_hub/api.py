@@ -66,6 +66,11 @@ def root():
     }
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/status", dependencies=[Depends(require_api_key)])
 def status():
     return {
@@ -156,6 +161,8 @@ def save_model(request: SaveRequest):
             json.dump(metadata, f, indent=2)
 
         return {"status": "saved", "model_path": str(model_path)}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
