@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", type=Path, help="Write machine-readable inventory here")
     parser.add_argument("--markdown", type=Path, help="Write Markdown inventory here")
     parser.add_argument("--strict-layout", action="store_true",
-                        help="Fail if a project lacks source, manifest or tests")
+                        help="Fail if a project lacks source, manifest, README or tests")
     args = parser.parse_args(argv)
     try:
         inventory = build_inventory(args.root, commit=os.environ.get("GITHUB_SHA", ""))
@@ -234,7 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         "zero claims independently validated by this static scan"
     )
     if args.strict_layout and any(
-        not row["manifest_present"] or not row["source_files"] or not row["test_files"]
+        not row["manifest_present"] or not row["source_files"]
+        or not row["test_files"] or not row["readme_present"]
         for row in inventory["projects"]
     ):
         print("Research project layout check failed; see generated inventory", file=sys.stderr)
