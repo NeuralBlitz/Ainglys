@@ -2,7 +2,7 @@
 """
 Deployment Verification Script
 
-Verifies that all AI Hub platform components are properly deployed and functioning.
+Checks local imports and repository files; does NOT certify deployed services.
 Checks all 4 phases:
 - Phase 1: Core Infrastructure
 - Phase 2: Advanced Infrastructure
@@ -80,7 +80,7 @@ def check_command(command: List[str]) -> Tuple[bool, str]:
 
 
 class DeploymentVerifier:
-    """Verifies AI Hub deployment."""
+    """Checks research installation prerequisites, not runtime deployment."""
 
     def __init__(self):
         self.checks_passed = 0
@@ -183,7 +183,7 @@ class DeploymentVerifier:
             self.warnings += 1
 
     def verify_phase4(self):
-        """Verify Phase 4: Production Infrastructure."""
+        """Check Phase 4 development-file availability (not production readiness)."""
         print_header("PHASE 4: Production Infrastructure")
 
         # Check Docker files
@@ -299,8 +299,8 @@ class DeploymentVerifier:
         print(f"\n{Colors.BOLD}Status:{Colors.END}")
         if self.checks_failed == 0:
             print(f"  {Colors.GREEN}{Colors.BOLD}✓ ALL CHECKS PASSED{Colors.END}")
-            print(f"\n  The AI Hub platform is fully deployed and operational!")
-            print(f"  All 4 phases (48 features) are ready to use.")
+            print(f"\n  Repository prerequisites checked; deployment is not certified.")
+            print(f"  Run scripts/verify_compose.py and live container tests separately.")
             return 0
         elif self.checks_failed < 3:
             print(f"  {Colors.YELLOW}{Colors.BOLD}⚠ MOSTLY FUNCTIONAL{Colors.END}")
@@ -320,7 +320,7 @@ def main():
     """Main verification function."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Verify AI Hub platform deployment")
+    parser = argparse.ArgumentParser(description="Check Ainglys research prerequisites (not deployment certification)")
     parser.add_argument(
         "--full", action="store_true", help="Run full verification including tests"
     )
@@ -333,7 +333,7 @@ def main():
     print(f"{Colors.BOLD}{Colors.BLUE}")
     print("╔═══════════════════════════════════════════════════════════════╗")
     print("║           AI HUB DEPLOYMENT VERIFICATION                      ║")
-    print("║              Complete 4-Phase Platform                        ║")
+    print("║              Research Preflight (not production ready)                        ║")
     print("╚═══════════════════════════════════════════════════════════════╝")
     print(f"{Colors.END}")
 

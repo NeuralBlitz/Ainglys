@@ -24,6 +24,8 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose -f compose.core.yml config --quiet
+          python scripts/verify_compose.py
+          python scripts/verify_compose.py --ui
           AI_HUB_API_KEYS_JSON='[{"id":"ci-reader","sha256":"0000000000000000000000000000000000000000000000000000000000000000","scopes":["read"]}]' \
             docker compose -f docker-compose.yml -f compose.scoped-keys.yml config --quiet
 
@@ -132,4 +134,4 @@ jobs:
           AI_HUB_API_KEY: test-only-api-key-at-least-32-characters-long
           JWT_SECRET_KEY: test-only-jwt-secret-at-least-32-characters-long
         run: |
-          python -m pytest -q tests/test_api.py tests/test_ml_engine.py projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py tests/test_supervised_training.py tests/test_supervised_cli.py tests/test_dashboard_training.py tests/test_request_quota.py tests/test_scoped_api_principals.py tests/test_dataset_repository_safe.py tests/test_dataset_version_manager_security.py
+          python -m pytest -q tests/test_api.py tests/test_ml_engine.py projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py tests/test_supervised_training.py tests/test_supervised_cli.py tests/test_dashboard_training.py tests/test_request_quota.py tests/test_scoped_api_principals.py tests/test_dataset_repository_safe.py tests/test_dataset_version_manager_security.py tests/test_compose_preflight.py

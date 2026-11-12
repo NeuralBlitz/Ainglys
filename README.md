@@ -3,14 +3,14 @@
 > **Release status (2026-11-11):** Research software under active security and reliability remediation. Do not expose the API or training services publicly until deployment security and full CI have been independently validated. Historic test and coverage claims below are not current proof of release readiness. See [remediation pull request #2](https://github.com/NeuralBlitz/Ainglys/pull/2).
 
 
-[![Tests](https://img.shields.io/badge/tests-170%2B%20passing-brightgreen)](TEST_REPORT_FINAL.md)
-[![Packages](https://img.shields.io/badge/packages-87-blue)](Advanced-Research/Ideas/projects/)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Ainglys CI](https://github.com/NeuralBlitz/Ainglys/actions/workflows/ci.yml/badge.svg)](https://github.com/NeuralBlitz/Ainglys/actions/workflows/ci.yml)
+[Research maturity tracking](https://github.com/NeuralBlitz/Ainglys/issues/6)
+[Python 3.11+ package requirement](pyproject.toml)
+[Root licensing decision pending](https://github.com/NeuralBlitz/Ainglys/issues/7)
 
 A unified AI/ML platform with CLI, REST API, ML components, and comprehensive visualization/interpretability features. Built on the **ACCA** (Attentive Causal Automata) framework and integrated with the Advanced Research orchestration system.
 
-> **🎉 Latest Update:** Complete 4-phase implementation with 48 features, 21 core modules, and 170+ tests!
+> **Current engineering status:** The core API/UI deployment and configured CI checks are actively maintained; research packages and experimental services are not uniformly validated. See the [live CI evidence](https://github.com/NeuralBlitz/Ainglys/actions/workflows/ci.yml), [research maturity issue](https://github.com/NeuralBlitz/Ainglys/issues/6), and [deployment issue](https://github.com/NeuralBlitz/Ainglys/issues/4).
 
 ## Overview
 
@@ -555,6 +555,19 @@ The separate `DatasetVersionManager` file-snapshot workflow validates manifest p
 ## Safe dataset versioning
 
 The `DatasetRepository` storage path now uses only non-executable NumPy, Pandas JSON or standard JSON snapshots. New versions are SHA-256 checked, capped at 32 MiB, and reject unsafe filenames and symlinks. **Historic `.pkl` versions no longer load automatically**, even if stored in a local repository. Read [Safe Dataset Snapshots and Legacy Migration](docs/SAFE_DATASET_SNAPSHOTS.md) before reopening an older dataset registry.
+
+## Deployment preflight (local core stack)
+
+The supported local runtime is the loopback-bound `api` service plus optional `ui` profile. Before running Docker Compose, verify the **rendered** configuration, including credential presence, loopback-only ports, restricted container capabilities, UI dependency ordering and model-volume persistence:
+
+```bash
+export AI_HUB_API_KEY='<random credential with 32 or more characters>'
+python scripts/verify_compose.py
+python scripts/verify_compose.py --ui
+docker compose --profile ui up --build -d
+```
+
+[Full core deployment preflight guide](docs/COMPOSE_PREFLIGHT.md). The separate `docker-compose.full.experimental.yml` includes unverified services and missing assets and must not be presented as a release-ready stack. A successful preflight is **configuration validation**, not proof of live services or production safety.
 
 ## Security scanning and dependency maintenance
 
