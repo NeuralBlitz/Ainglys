@@ -17,7 +17,12 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY src/ ./src/
 COPY projects/acca/src/ ./projects/acca/src/
-RUN python -m pip install --upgrade pip && python -m pip install --no-cache-dir .
+# Docker is Linux-only: install the pinned CPU build, not multi-GB CUDA bundles.
+# Keep this pinned version synchronized with uv.lock.
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir "torch==2.10.0+cpu" \
+         --index-url https://download.pytorch.org/whl/cpu \
+    && python -m pip install --no-cache-dir .
 
 FROM base AS production
 
