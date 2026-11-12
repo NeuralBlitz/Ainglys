@@ -13,10 +13,10 @@ class MLEngine:
         self.is_trained = False
 
     def train(
-        self, X: torch.Tensor, y: torch.Tensor, epochs: int = 10
+        self, X: torch.Tensor, y: torch.Tensor, epochs: int = 10, learning_rate: float = 0.001
     ) -> Dict[str, float]:
         X, y = X.to(self.device), y.to(self.device)
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         criterion = nn.CrossEntropyLoss()
 
         losses = []
@@ -49,5 +49,5 @@ class MLEngine:
         torch.save(self.model.state_dict(), path)
 
     def load(self, path: str):
-        self.model.load_state_dict(torch.load(path, map_location=self.device))
+        self.model.load_state_dict(torch.load(path, map_location=self.device, weights_only=True))
         self.is_trained = True

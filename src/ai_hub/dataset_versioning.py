@@ -322,5 +322,11 @@ class DatasetLineage:
         return None
 
 
+# File-based snapshot compatibility API (does not use pickle).
+from .dataset_version_manager import DatasetVersionManager
+
 # Export
-__all__ = ["DatasetRepository", "DatasetVersion", "DatasetDiff", "DatasetLineage"]
+__all__ = [
+    "DatasetRepository", "DatasetVersion", "DatasetDiff", "DatasetLineage",
+    "DatasetVersionManager",
+]

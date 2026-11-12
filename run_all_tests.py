@@ -78,8 +78,18 @@ def run_tests(package):
     test_path = Path(package["path"])
 
     if not test_path.exists():
-        print(f"⚠️  Test directory not found: {test_path}")
-        return None
+        message = f"Required test directory not found: {test_path}"
+        print(f"❌ {message}")
+        return {
+            "name": package["name"],
+            "returncode": 2,
+            "passed": 0,
+            "failed": 0,
+            "errors": 1,
+            "total": 1,
+            "output": message,
+            "tests": [],
+        }
 
     # Run pytest with coverage
     cmd = [
@@ -186,14 +196,17 @@ def print_summary(results):
         print(f"❌ Failed: {total_failed}")
         print(f"⚠️  Errors: {total_errors}")
 
-    # Overall status
+    # A process exit code is authoritative; parsing text is for diagnostics only.
+    # Do not report a green suite if pytest failed without recognized summary text.
     print()
-    if total_failed == 0 and total_errors == 0:
-        print("🎉 ALL TESTS PASSED! Production ready.")
+    all_commands_succeeded = bool(results) and all(
+        result is not None and result["returncode"] == 0 for result in results
+    )
+    if all_commands_succeeded:
+        print("✅ All configured test commands passed (not a production certification).")
         return 0
-    else:
-        print(f"⚠️  {total_failed + total_errors} test(s) need attention")
-        return 1
+    print("⚠️  One or more configured test commands failed; see detailed output.")
+    return 1
 
 
 def save_report(results):

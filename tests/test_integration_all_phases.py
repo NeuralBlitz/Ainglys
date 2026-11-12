@@ -63,12 +63,22 @@ class TestPhase1ToPhase2Integration:
             tags=["production"],
         )
 
-        # Serve model (Phase 2)
-        model_path = registry.get_model_path("test_classifier", version)
-        server = ModelServer(model_path=str(model_path))
+        # Restore the registered weights into a correctly typed model before serving.
+        # ModelServer accepts a model object via load_model, not a file path in its constructor.
+        import copy
+        from src.ai_hub.serving import ServingConfig
 
-        assert server is not None
-        assert server.model is not None
+        model_path = registry.get_model_path("test_classifier", version)
+        assert model_path.is_file()
+        restored = copy.deepcopy(simple_model)
+        restored.load_state_dict(registry.load_model("test_classifier", version.version_id))
+        server = ModelServer(ServingConfig(enable_batching=False, enable_gpu=False))
+        server.load_model(restored, "test_classifier", version.version_id)
+
+        response = server.predict([0.1] * 10, "test_classifier")
+        assert response.model_version == version.version_id
+        assert len(response.predictions) == 2
+        server.shutdown()
 
     def test_experiment_tracking_with_automl(self, temp_dir):
         """Test experiment tracking integrated with AutoML."""
@@ -91,7 +101,7 @@ class TestPhase1ToPhase2Integration:
 
         # Verify experiment was recorded
         assert len(tracker.runs) == 1
-        assert tracker.runs[0].metrics["best_accuracy"] == 0.95
+        assert tracker.runs[0].metrics["best_accuracy"][-1] == 0.95
 
     def test_security_with_async_api(self):
         """Test security integration with async API."""

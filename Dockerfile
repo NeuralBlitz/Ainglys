@@ -13,24 +13,39 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Copy package sources before installation; editable installs can mask broken images.
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install -e "."
-
-FROM base as production
-
 COPY src/ ./src/
+COPY projects/acca/src/ ./projects/acca/src/
+# Docker is Linux-only: install the pinned CPU build, not multi-GB CUDA bundles.
+# Keep this pinned version synchronized with uv.lock.
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir "torch==2.10.0+cpu" \
+         --index-url https://download.pytorch.org/whl/cpu \
+    && python -m pip install --no-cache-dir .
+
+FROM base AS production
+
 COPY . .
 
-EXPOSE 8000 8501
+# Run services as an unprivileged user; model artifacts have an explicit write root.
+RUN useradd --system --uid 10001 --create-home appuser \
+    && mkdir -p /app/models \
+    && chown -R appuser:appuser /app
+USER appuser
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+EXPOSE 8000
 
-CMD ["sh", "-c", "ai-hub api start --host 0.0.0.0 --port 8000 & streamlit run src/ai_hub/web.py --server.port 8501 --server.address 0.0.0.0"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl --fail --silent http://127.0.0.1:8000/health || exit 1
 
-FROM base as development
+# Exactly one foreground process; the optional Streamlit UI is a separate Compose service.
+CMD ["uvicorn", "ai_hub.api:app", "--host", "0.0.0.0", "--port", "8000"]
 
-RUN pip install -e ".[dev]" jupyter jupyterlab
+FROM base AS development
+
+RUN python -m pip install --no-cache-dir '.[dev]' jupyter jupyterlab
+COPY . .
 
 EXPOSE 8000 8501 8888
 

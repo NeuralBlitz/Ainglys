@@ -58,15 +58,25 @@ class MultiModalDynamicGraph(nn.Module):
             output: Transformed node features
             attention_weights: Attention matrix
         """
-        batch_size = x.shape[0]
+        if x.ndim != 3 or x.shape[-1] != self.node_dim:
+            raise ValueError(
+                f"Expected [batch, nodes, {self.node_dim}] input, got {tuple(x.shape)}"
+            )
+        batch_size, supplied_nodes, _ = x.shape
+        if supplied_nodes < self.num_nodes:
+            padding = x.new_zeros(batch_size, self.num_nodes - supplied_nodes, self.node_dim)
+            x = torch.cat([x, padding], dim=1)
+        elif supplied_nodes > self.num_nodes:
+            x = x[:, : self.num_nodes, :]
 
-        nodes = self.node_embeddings.unsqueeze(0).expand(batch_size, -1, -1)
+        nodes = x + self.node_embeddings.unsqueeze(0)
+        adjacency = torch.softmax(self.edge_weights, dim=-1)
+        graph_messages = torch.matmul(adjacency.unsqueeze(0), nodes)
+        attended_nodes = nodes + graph_messages
 
-        if x.shape[1] != self.num_nodes:
-            x = torch.cat([x, nodes[:, : self.num_nodes - x.shape[1], :]], dim=1)
-
-        attn_output, attn_weights = self.attention(nodes, nodes, nodes)
-
+        attn_output, attn_weights = self.attention(
+            attended_nodes, attended_nodes, attended_nodes
+        )
         return attn_output, attn_weights
 
     def update_dynamics(self, t: float, node_states: torch.Tensor) -> torch.Tensor:

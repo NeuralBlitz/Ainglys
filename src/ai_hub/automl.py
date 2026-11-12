@@ -69,8 +69,14 @@ class HyperparameterOptimizer:
     - Population Based Training: Evolutionary optimization
     """
 
-    def __init__(self, config: Optional[OptimizationConfig] = None):
+    def __init__(
+        self, config: Optional[OptimizationConfig] = None, *, strategy: Optional[str] = None
+    ):
         self.config = config or OptimizationConfig()
+        if strategy is not None:
+            if strategy not in {"grid", "random", "bayesian", "pbt"}:
+                raise ValueError(f"Unsupported optimization strategy: {strategy}")
+            self.config.strategy = strategy
         self.search_space: Dict[str, HyperparameterSpace] = {}
         self.history: List[Dict] = []
         self.best_params: Optional[Dict] = None

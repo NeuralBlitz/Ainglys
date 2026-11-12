@@ -155,6 +155,7 @@ class AttentionVisualizer:
 
     def __init__(self):
         self.attention_weights = []
+        self.colormap = "Viridis"
 
     def capture_attention(self, module, input, output):
         """Hook to capture attention weights."""
@@ -519,14 +520,20 @@ class ConfusionMatrixVisualizer:
         pass
 
     def plot_confusion_matrix(
-        self, cm: np.ndarray, class_names: List[str]
+        self, cm: np.ndarray, class_names: List[str], normalize: bool = True
     ) -> Optional[Dict]:
-        """Plot confusion matrix heatmap."""
+        """Plot confusion matrix heatmap, optionally row-normalized."""
+        cm = np.asarray(cm)
+        if not class_names or cm.ndim != 2 or cm.shape != (len(class_names), len(class_names)):
+            raise ValueError("Classes must match a nonempty square confusion matrix")
         if not PLOTLY_AVAILABLE:
             return None
 
-        # Normalize
-        cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+        row_totals = cm.sum(axis=1, keepdims=True)
+        cm_normalized = np.divide(
+            cm.astype(float), row_totals,
+            out=np.zeros_like(cm, dtype=float), where=row_totals != 0
+        ) if normalize else cm.astype(float)
 
         fig = go.Figure(
             data=go.Heatmap(
@@ -694,6 +701,18 @@ class HyperparameterVisualizer:
         if not PLOTLY_AVAILABLE or not trials:
             return None
 
+        # Accept structured trials or legacy flat metric dictionaries.
+        if "params" not in trials[0]:
+            if metric not in trials[0] and "accuracy" in trials[0]:
+                metric = "accuracy"
+            if any(metric not in trial for trial in trials):
+                raise ValueError("Requested metric is missing from trial data")
+            trials = [
+                {"params": {k: v for k, v in trial.items() if k != metric},
+                 metric: trial[metric]}
+                for trial in trials
+            ]
+
         # Extract dimensions
         dimensions = []
         param_names = list(trials[0]["params"].keys())
@@ -729,6 +748,64 @@ class HyperparameterVisualizer:
         return fig.to_dict()
 
 
+# Compatibility adapters for the documented public visualization API.
+# Adapters reuse the existing plotting implementations and validate inputs.
+class ModelComparator(ModelComparisonVisualizer):
+    """Collect named scalar model metrics and render comparable radar charts."""
+
+    def __init__(self):
+        super().__init__()
+        self.models: Dict[str, Dict[str, float]] = {}
+
+    def add_model(self, name: str, metrics: Dict[str, float], color: str = "blue"):
+        if not name or not metrics:
+            raise ValueError("Model name and metrics are required")
+        self.models[name] = dict(metrics)
+        super().add_model(name, {key: [value] for key, value in metrics.items()}, color)
+
+    def create_radar_chart(self):
+        if not self.models:
+            raise ValueError("At least one model is required")
+        return self.plot_metrics_radar(self.models)
+
+
+class FeatureImportanceViz(FeatureImportanceVisualizer):
+    def plot_feature_importance(self, feature_names, importance_scores, top_n=20):
+        if len(feature_names) != len(importance_scores) or not feature_names:
+            raise ValueError("Feature names and scores must be nonempty and have equal lengths")
+        return super().plot_feature_importance(
+            list(feature_names), np.asarray(importance_scores, dtype=float), top_n
+        )
+
+
+class ConfusionMatrixViz(ConfusionMatrixVisualizer):
+    pass
+
+
+class ExperimentTimeline(ExperimentTimelineVisualizer):
+    def __init__(self):
+        super().__init__()
+        self.experiments: List[Dict[str, str]] = []
+
+    def add_experiment(self, name, start_time, end_time, description=""):
+        if end_time < start_time:
+            raise ValueError("Experiment end time cannot precede start time")
+        self.experiments.append({
+            "name": name,
+            "start_time": start_time.isoformat() if hasattr(start_time, "isoformat") else str(start_time),
+            "end_time": end_time.isoformat() if hasattr(end_time, "isoformat") else str(end_time),
+            "description": description,
+        })
+
+    def plot_timeline(self):
+        if not self.experiments:
+            raise ValueError("Timeline has no experiments")
+        return self.plot_experiment_timeline(self.experiments)
+
+
+ArchitectureVisualizer = ArchitectureDiagrammer
+
+
 # Export all advanced visualization components
 __all__ = [
     "TrainingAnimator",
@@ -741,4 +818,9 @@ __all__ = [
     "EmbeddingVisualizer",
     "ExperimentTimelineVisualizer",
     "HyperparameterVisualizer",
+    "ModelComparator",
+    "FeatureImportanceViz",
+    "ConfusionMatrixViz",
+    "ExperimentTimeline",
+    "ArchitectureVisualizer",
 ]

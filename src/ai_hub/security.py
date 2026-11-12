@@ -9,6 +9,8 @@ from typing import Optional, Dict, List
 from functools import wraps
 import hashlib
 import secrets
+import os
+import torch
 import jwt
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader, HTTPBearer
@@ -16,7 +18,12 @@ from pydantic import BaseModel
 
 
 # Security configuration
-SECRET_KEY = secrets.token_urlsafe(32)
+def _jwt_secret() -> str:
+    """Use a persistent deployment secret; never silently generate a new one."""
+    secret = os.environ.get("JWT_SECRET_KEY", "")
+    if len(secret) < 32:
+        raise HTTPException(status_code=503, detail="JWT signing is not configured")
+    return secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -57,46 +64,45 @@ class TokenData(BaseModel):
     username: Optional[str] = None
     scopes: List[str] = []
 
+    def __getitem__(self, key: str):
+        """Support JWT-style claim indexing in legacy integrations."""
+        if key == "sub":
+            return self.username
+        if key == "scopes":
+            return self.scopes
+        raise KeyError(key)
 
-# Mock database (replace with real DB in production)
-fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "full_name": "Administrator",
-        "email": "admin@aihub.com",
-        "hashed_password": hashlib.sha256("admin123".encode()).hexdigest(),
-        "disabled": False,
-        "role": "admin",
-        "scopes": ["read", "write", "admin", "delete"],
-    },
-    "researcher": {
-        "username": "researcher",
-        "full_name": "Research User",
-        "email": "researcher@aihub.com",
-        "hashed_password": hashlib.sha256("research123".encode()).hexdigest(),
-        "disabled": False,
-        "role": "researcher",
-        "scopes": ["read", "write", "train", "predict"],
-    },
-    "user": {
-        "username": "user",
-        "full_name": "Standard User",
-        "email": "user@aihub.com",
-        "hashed_password": hashlib.sha256("user123".encode()).hexdigest(),
-        "disabled": False,
-        "role": "user",
-        "scopes": ["read", "predict"],
-    },
-}
+
+# Empty by default: provision users from a real identity store at deployment.
+# Never ship example accounts or passwords in the application runtime.
+fake_users_db: Dict[str, Dict] = {}
 
 # API Keys storage
 api_keys_db: Dict[str, Dict] = {}
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash."""
-    return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
+def hash_password(password: str) -> str:
+    """Generate a salted, iterated PBKDF2-SHA256 password hash."""
+    salt = secrets.token_bytes(16)
+    iterations = 600_000
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${key.hex()}"
 
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        method, count, salt_hex, digest_hex = hashed_password.split("$", 3)
+        if method != "pbkdf2_sha256":
+            return False
+        iterations = int(count)
+        if not 100_000 <= iterations <= 2_000_000:
+            return False
+        actual = hashlib.pbkdf2_hmac(
+            "sha256", plain_password.encode("utf-8"), bytes.fromhex(salt_hex), iterations
+        )
+        return secrets.compare_digest(actual, bytes.fromhex(digest_hex))
+    except (ValueError, TypeError):
+        return False
 
 def get_user(db, username: str) -> Optional[UserInDB]:
     """Get user from database."""
@@ -126,14 +132,14 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, _jwt_secret(), algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(token: str) -> TokenData:
     """Verify JWT token."""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, _jwt_secret(), algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         scopes: List[str] = payload.get("scopes", [])
 
@@ -145,7 +151,7 @@ def verify_token(token: str) -> TokenData:
         return TokenData(username=username, scopes=scopes)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=401, detail="Invalid authentication credentials"
         )
@@ -266,7 +272,8 @@ def revoke_api_key(api_key: str) -> bool:
 def get_user_api_keys(username: str) -> List[Dict]:
     """Get all API keys for a user."""
     return [
-        {"key": k, **v} for k, v in api_keys_db.items() if v["username"] == username
+        {"key_id": hashlib.sha256(k.encode()).hexdigest()[:12], **v}
+        for k, v in api_keys_db.items() if v["username"] == username
     ]
 
 
@@ -354,17 +361,8 @@ def sanitize_path(path: str) -> str:
 
 
 def secure_torch_load(filepath: str, map_location="cpu"):
-    """
-    Securely load PyTorch model.
-
-    Uses weights_only=True to prevent code execution attacks.
-    """
-    try:
-        # PyTorch 2.0+ supports weights_only
-        return torch.load(filepath, map_location=map_location, weights_only=True)
-    except TypeError:
-        # Fallback for older versions
-        return torch.load(filepath, map_location=map_location)
+    """Load tensor/state-dict data only; never fall back to arbitrary unpickling."""
+    return torch.load(filepath, map_location=map_location, weights_only=True)
 
 
 # Permission decorators for common operations
@@ -383,6 +381,8 @@ __all__ = [
     "get_current_user",
     "get_current_active_user",
     "authenticate_user",
+    "hash_password",
+    "verify_password",
     "create_access_token",
     "verify_token",
     "Token",

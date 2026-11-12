@@ -1,10 +1,14 @@
 import streamlit as st
 import requests
+import os
+
+_api_session = requests.Session()
+_api_session.headers.update({"X-API-Key": os.environ.get("AI_HUB_API_KEY", "")})
 import pandas as pd
 import json
 from typing import List, Dict, Any
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.environ.get("AI_HUB_API_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="AI Hub", page_icon="🤖", layout="wide")
 
@@ -12,7 +16,7 @@ st.set_page_config(page_title="AI Hub", page_icon="🤖", layout="wide")
 def check_api():
     """Check if API is running."""
     try:
-        response = requests.get(f"{API_BASE}/", timeout=2)
+        response = _api_session.get(f"{API_BASE}/", timeout=2)
         return response.status_code == 200
     except:
         return False
@@ -20,7 +24,7 @@ def check_api():
 
 def train_model(input_dim: int, hidden_dim: int, output_dim: int, epochs: int):
     """Train a model via API."""
-    response = requests.post(
+    response = _api_session.post(
         f"{API_BASE}/train",
         json={
             "input_dim": input_dim,
@@ -34,37 +38,37 @@ def train_model(input_dim: int, hidden_dim: int, output_dim: int, epochs: int):
 
 def predict(data: List[List[float]]):
     """Make predictions via API."""
-    response = requests.post(f"{API_BASE}/predict", json={"data": data})
+    response = _api_session.post(f"{API_BASE}/predict", json={"data": data})
     return response.json()
 
 
 def get_models():
     """Get list of models."""
-    response = requests.get(f"{API_BASE}/models")
+    response = _api_session.get(f"{API_BASE}/models")
     return response.json()
 
 
 def save_model(name: str):
     """Save model."""
-    response = requests.post(f"{API_BASE}/save", json={"model_name": name})
+    response = _api_session.post(f"{API_BASE}/save", json={"model_name": name})
     return response.json()
 
 
 def load_model(name: str):
     """Load model."""
-    response = requests.post(f"{API_BASE}/load/{name}")
+    response = _api_session.post(f"{API_BASE}/load/{name}")
     return response.json()
 
 
 def delete_model(name: str):
     """Delete model."""
-    response = requests.delete(f"{API_BASE}/models/{name}")
+    response = _api_session.delete(f"{API_BASE}/models/{name}")
     return response.json()
 
 
 def get_status():
     """Get API status."""
-    response = requests.get(f"{API_BASE}/status")
+    response = _api_session.get(f"{API_BASE}/status")
     return response.json()
 
 
