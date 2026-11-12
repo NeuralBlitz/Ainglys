@@ -55,7 +55,7 @@ jobs:
             --cov=ai_hub --cov-report=xml:test-results/coverage.xml
       - name: Archive test evidence
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: extended-tests-python311
           path: test-results/
