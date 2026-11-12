@@ -419,7 +419,7 @@ edge_weights = topology()
 
 ## Research Projects
 
-This repository contains **87 research projects** including:
+The root repository tracks **39 local research subprojects** plus a linked Advanced-Research submodule; the historical '87 projects' claim has not been reconciled to validated, independently working packages. Representative concepts include:
 
 ### Core Frameworks
 
@@ -497,66 +497,23 @@ cd ../newnn && pip install -e .                                # Neuromorphic
 cd ../gcaa && pip install -e .                                 # Cellular Automata
 ```
 
-## Testing ✅
+## Testing and Verification
 
-**Status: 170+ tests passing (95%+ success rate)**
+The latest completed core smoke workflow prior to this revision passed **23 tests on Python 3.11 and 23 tests on Python 3.12** (November 11, 2026). This establishes a limited clean-install and core API/ACCA check, not full-repository correctness or coverage. New extended tests and lockfile/Compose checks run in GitHub Actions, with their current status visible on the [Actions page](https://github.com/NeuralBlitz/Ainglys/actions).
 
-### Quick Test
 ```bash
-# Run all tests
-python3 -m pytest tests/ Advanced-Research/Ideas/projects/*/tests/ projects/acca/tests/ -v
+# Core regression tests
+python -m pytest -q tests/test_api.py tests/test_ml_engine.py \
+  projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py
+
+# Extended local AI Hub and ACCA tests
+python -m pytest tests/ projects/acca/tests/ --cov=ai_hub --cov-report=term-missing
+
+# Verify the dependency resolution (uv required)
+uv lock --check
 ```
 
-### Comprehensive Test Suite
-
-All packages include comprehensive test suites:
-
-| Package | Tests | Status | Coverage |
-|---------|-------|--------|----------|
-| **AI Hub Core** | 11 | ✅ 100% | API, ML Engine |
-| **ACCA** | 2 | ✅ 100% | Core functionality |
-| **ACML** | 31 | ✅ 97% | Category theory, meta-learning, sheaves |
-| **Aether-Calc** | 13 | ✅ 100% | Optimization, volatility surface |
-| **GAAV** | 16 | ✅ 100% | Granular arithmetic, uncertainty |
-| **GAFT** | 22 | ✅ 100% | Field theory, particle simulation |
-| **CNM** | 7 | ✅ 100% | Network morphogenesis |
-| **HNMA** | 5 | ✅ 100% | Multi-agent systems |
-| **MCAF** | 2 | ✅ 100% | Meta-cognitive architecture |
-| **NEWNN** | 3 | ✅ 100% | Neuromorphic networks |
-| **GCAA** | 2 | ✅ 100% | Cellular automata |
-| **Phase 1** | 24 | ✅ 100% | Core infrastructure |
-| **Phase 2** | 30 | ✅ 100% | Advanced infrastructure |
-| **Phase 3** | 25 | ✅ 100% | Visualization & interpretability |
-| **TOTAL** | **170+** | **✅ 95%+** | **~5,000 lines** |
-
-### Run Specific Package Tests
-```bash
-# ACML (Category-theoretic meta-learning)
-pytest Advanced-Research/Ideas/projects/acml/tests/ -v
-
-# Aether-Calc (Optimization)
-pytest Advanced-Research/Ideas/projects/aether_calc/tests/ -v
-
-# GAAV (Granular arithmetic)
-pytest Advanced-Research/Ideas/projects/gaav/tests/ -v
-
-# GAFT (Field theory)
-pytest Advanced-Research/Ideas/projects/gaft/tests/ -v
-
-# Phase 3 (Visualization)
-pytest tests/test_phase3_comprehensive.py -v
-```
-
-### Run with Coverage
-```bash
-pytest tests/ --cov=src --cov-report=html
-```
-
-### Test Reports
-- `TEST_REPORT_FINAL.md` - Detailed test documentation
-- `TESTING_COMPLETE.md` - Achievement summary
-- `TEST_RESULTS.txt` - Raw test output
-- `COMPLETE_IMPLEMENTATION_SUMMARY.md` - Full platform overview
+Prior reports (`TEST_REPORT_FINAL.md`, `TESTING_COMPLETE.md`) are historical; their test counts and coverage claims have not been independently reverified for the current revision. [Follow-up issue #5](https://github.com/NeuralBlitz/Ainglys/issues/5) tracks full-suite assurance.
 
 ## API Endpoints
 
@@ -683,35 +640,23 @@ pytest tests/ --cov=src --cov-report=html
 
 ## Docker Deployment
 
-### Quick Start with Docker
+### Minimal local deployment (supported configuration)
+
+Set a strong API key in your shell or secret manager, then start the API:
+
 ```bash
-# Start all services
-docker-compose up -d
-
-# Access services
-# API: http://localhost:8000
-# MLflow: http://localhost:5000
-# Grafana: http://localhost:3000
-# Prometheus: http://localhost:9090
-
-# Scale Ray workers
-docker-compose up -d --scale ray-worker=4
-
-# View logs
-docker-compose logs -f ai-hub-api
+export AI_HUB_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+docker compose config --quiet
+docker compose up --build -d
+curl --fail http://127.0.0.1:8000/health
+curl -H "X-API-Key: $AI_HUB_API_KEY" http://127.0.0.1:8000/models
 ```
 
-### Services Included
-1. **ai-hub-api** - Main API server
-2. **model-server** - Model serving endpoint
-3. **ray-head** - Ray cluster head node
-4. **ray-worker** - Ray worker nodes (scalable)
-5. **mlflow** - MLflow tracking server
-6. **postgres** - PostgreSQL database
-7. **redis** - Redis cache
-8. **nginx** - Load balancer
-9. **prometheus** - Metrics collection
-10. **grafana** - Visualization dashboard
+The default `docker-compose.yml` (also available as `compose.core.yml`) exposes the API **only on loopback** at port 8000 and uses a persistent model volume. The optional Streamlit UI is enabled with `docker compose --profile ui up --build -d` and is exposed on loopback port 8501.
+
+The previous larger 10-service stack is preserved in `docker-compose.full.experimental.yml`, **not production validated**. It references additional infrastructure components and configuration assets that still require implementation and verification. Do not use it for a public deployment. See [deployment tracking issue #4](https://github.com/NeuralBlitz/Ainglys/issues/4).
+
+The application currently demonstrates training with synthetic random labels; the evaluation metric is **not** a scientific or real-world model benchmark.
 
 ## Dependencies
 
