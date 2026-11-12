@@ -12,6 +12,20 @@ A unified AI/ML platform with CLI, REST API, ML components, and comprehensive vi
 
 > **Current engineering status:** The core API/UI deployment and configured CI checks are actively maintained; research packages and experimental services are not uniformly validated. See the [live CI evidence](https://github.com/NeuralBlitz/Ainglys/actions/workflows/ci.yml), [research maturity issue](https://github.com/NeuralBlitz/Ainglys/issues/6), and [deployment issue](https://github.com/NeuralBlitz/Ainglys/issues/4).
 
+## Research evidence and maturity inventory
+
+Ainglys currently contains **39 research subprojects**. Many are preliminary two-layer ML scaffolds with initialization/output-shape tests; these smoke tests do not demonstrate a paper's claimed algorithm, causal discovery or scientific reproducibility. The [research maturity policy](docs/RESEARCH_MATURITY.md) identifies evidence standards and next experiments.
+
+To inspect each project's actual source modules, tests, SHA-256 file digests, documentation gaps and conservative implementation signals:
+
+```bash
+python scripts/research_inventory.py --strict-layout \
+  --json test-results/research-inventory.json \
+  --markdown test-results/research-inventory.md
+```
+
+CI automatically uploads these inventory files with the extended-suite test evidence for each commit. No project is automatically classified as scientifically validated by this scan. See [research review issue #6](https://github.com/NeuralBlitz/Ainglys/issues/6).
+
 ## Overview
 
 AI Hub is a research-oriented machine learning platform that combines:
