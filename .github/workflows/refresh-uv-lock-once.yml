@@ -1,0 +1,35 @@
+# One-shot lockfile synchronization for Ainglys remediation branch.
+# This workflow deletes its own file in the successful lockfile commit.
+name: Refresh uv lock (one-shot)
+
+on:
+  push:
+    branches: ["fix/ainglys-security-ci-20261111"]
+    paths:
+      - ".github/workflows/refresh-uv-lock-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.repository == 'NeuralBlitz/Ainglys' && github.ref == 'refs/heads/fix/ainglys-security-ci-20261111'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: astral-sh/setup-uv@v6
+      - name: Resolve and verify dependency lock
+        run: |
+          uv lock
+          uv lock --check
+      - name: Commit verified lock and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git rm .github/workflows/refresh-uv-lock-once.yml
+          git commit -m "build: regenerate verified uv lockfile"
+          git push origin HEAD:refs/heads/fix/ainglys-security-ci-20261111
