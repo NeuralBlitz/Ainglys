@@ -101,7 +101,7 @@ class TestPhase1ToPhase2Integration:
 
         # Verify experiment was recorded
         assert len(tracker.runs) == 1
-        assert tracker.runs[0].metrics["best_accuracy"] == 0.95
+        assert tracker.runs[0].metrics["best_accuracy"][-1] == 0.95
 
     def test_security_with_async_api(self):
         """Test security integration with async API."""
