@@ -8,7 +8,7 @@ import pandas as pd
 import json
 from typing import List, Dict, Any
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.environ.get("AI_HUB_API_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="AI Hub", page_icon="🤖", layout="wide")
 
