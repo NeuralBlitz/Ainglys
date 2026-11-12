@@ -8,7 +8,7 @@ import pandas as pd
 import json
 from typing import List, Dict, Any
 
-from ai_hub.dashboard_training import parse_supervised_upload
+from ai_hub.dashboard_training import parse_supervised_upload, safe_training_api_base, MAX_UPLOAD_BYTES
 
 API_BASE = os.environ.get("AI_HUB_API_URL", "http://localhost:8000")
 
@@ -44,7 +44,7 @@ def train_supervised_model(dataset):
     if len(api_key) < 32:
         raise ValueError("Configure AI_HUB_API_KEY before submitting training data")
     response = _api_session.post(
-        f"{API_BASE.rstrip('/')}/train/supervised",
+        f"{safe_training_api_base(API_BASE)}/train/supervised",
         json=dataset.model_dump(),
         headers={"X-API-Key": api_key},
         timeout=(10, 180),
@@ -147,6 +147,8 @@ def main():
         )
         if uploaded is not None:
             try:
+                if uploaded.size > MAX_UPLOAD_BYTES:
+                    raise ValueError("Uploaded JSON exceeds the 1 MB limit")
                 request = parse_supervised_upload(uploaded.getvalue())
                 classes = len(set(request.labels))
                 cols = st.columns(3)
