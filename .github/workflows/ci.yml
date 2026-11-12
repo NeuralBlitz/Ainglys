@@ -55,6 +55,13 @@ jobs:
           python -m pytest tests/ projects/acca/tests/ -q --tb=short \
             --junitxml=test-results/extended.xml \
             --cov=ai_hub --cov-report=xml:test-results/coverage.xml
+      - name: Generate versioned research evidence inventory
+        if: always()
+        run: |
+          mkdir -p test-results
+          python scripts/research_inventory.py --strict-layout \
+            --json test-results/research-inventory.json \
+            --markdown test-results/research-inventory.md
       - name: Archive test evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -150,4 +157,4 @@ jobs:
           AI_HUB_API_KEY: test-only-api-key-at-least-32-characters-long
           JWT_SECRET_KEY: test-only-jwt-secret-at-least-32-characters-long
         run: |
-          python -m pytest -q tests/test_api.py tests/test_ml_engine.py projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py tests/test_supervised_training.py tests/test_supervised_cli.py tests/test_dashboard_training.py tests/test_request_quota.py tests/test_scoped_api_principals.py tests/test_dataset_repository_safe.py tests/test_dataset_version_manager_security.py tests/test_compose_preflight.py
+          python -m pytest -q tests/test_api.py tests/test_ml_engine.py projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py tests/test_supervised_training.py tests/test_supervised_cli.py tests/test_dashboard_training.py tests/test_request_quota.py tests/test_scoped_api_principals.py tests/test_dataset_repository_safe.py tests/test_dataset_version_manager_security.py tests/test_compose_preflight.py tests/test_research_inventory.py
