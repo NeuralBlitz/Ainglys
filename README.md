@@ -133,6 +133,14 @@ AI Hub is a research-oriented machine learning platform that combines:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Scoped API client credentials (opt-in)
+
+Ainglys can authenticate up to 32 independently provisioned client keys using an optional `AI_HUB_API_KEYS_JSON` registry of SHA-256 fingerprints and explicit route scopes. Configure read-only, inference, training and model-management clients separately; attempts outside an enrolled client's permissions return HTTP **403**. Invalid/empty keyring configuration fails closed with **503** and **never** falls back to the legacy key.
+
+The existing `AI_HUB_API_KEY` one-key mode remains the default for compatibility. When the scoped registry is configured, that shared key is **not** accepted by the server unless also explicitly enrolled. Per-key request budgets remain process-local.
+
+See [Scoped API Keys: setup, permissions, Docker opt-in and revocation](docs/SCOPED_API_KEYS.md) for safe token provisioning and honest limitations. Full production identity management, distributed quotas, permissions auditing and controlled secret rotation remain work in progress.
+
 ## Authenticated request budgets (single-process)
 
 The Ainglys API applies fail-closed request budgets **after** validating `X-API-Key`. Limits are process-local, shared by every client using the same configured key, and reset on key rotation. The unauthenticated `/health` and `/` endpoints are not metered.

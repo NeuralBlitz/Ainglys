@@ -1,0 +1,14 @@
+# Explicit opt-in multi-key server configuration for the minimal Compose stack.
+# This file is intentionally NOT used by the default legacy-key deployment.
+#
+# Example:
+#   export AI_HUB_API_KEY='<CLI or UI client token, 32+ random characters>'
+#   export AI_HUB_API_KEYS_JSON='[{"id":"client","sha256":"<64-hex-token-digest>","scopes":["read","predict","train","models:write"]}]'
+#   docker compose -f docker-compose.yml -f compose.scoped-keys.yml up --build -d
+#
+# The API ignores AI_HUB_API_KEY for authentication when the registry is set.
+# The UI/CLI use AI_HUB_API_KEY to send their own client credential.
+services:
+  api:
+    environment:
+      AI_HUB_API_KEYS_JSON: ${AI_HUB_API_KEYS_JSON:?Provide a valid scoped keyring JSON}
