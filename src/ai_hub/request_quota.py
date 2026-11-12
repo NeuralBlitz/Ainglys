@@ -75,3 +75,53 @@ class RequestQuota:
 
 
 request_quota = RequestQuota()
+
+
+class PrincipalRequestQuotas:
+    """Separate process-local windows for up to 32 configured client tokens.
+
+    Stale entries expire; never evict an active quota merely to admit another
+    credential, which could let rotating identities bypass rate limits.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic):
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._entries: dict[bytes, tuple[RequestQuota, float]] = {}
+
+    def reset(self):
+        with self._lock:
+            self._entries.clear()
+
+    def check(
+        self,
+        token: str,
+        *,
+        training: bool,
+        request_limit: int,
+        training_limit: int,
+    ) -> int | None:
+        digest = hashlib.sha256(token.encode("utf-8")).digest()
+        now = self._clock()
+        with self._lock:
+            # Keep last-used time on active clients, but do not forgive any
+            # requests within the fixed rolling 60-second window.
+            stale = [
+                fingerprint for fingerprint, (_, last_seen) in self._entries.items()
+                if now - last_seen >= WINDOW_SECONDS
+            ]
+            for fingerprint in stale:
+                del self._entries[fingerprint]
+            if digest not in self._entries:
+                if len(self._entries) >= 32:
+                    return WINDOW_SECONDS
+                self._entries[digest] = (RequestQuota(self._clock), now)
+            quota, _ = self._entries[digest]
+            self._entries[digest] = (quota, now)
+        return quota.check(
+            token, training=training,
+            request_limit=request_limit, training_limit=training_limit,
+        )
+
+
+principal_request_quotas = PrincipalRequestQuotas()
