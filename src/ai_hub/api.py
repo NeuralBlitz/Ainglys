@@ -5,11 +5,16 @@ from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 import torch
 import json
+import math
+import threading
+import logging
 from .ml_engine import MLEngine
 from .api_auth import require_api_key, validate_model_name
 from pathlib import Path
 
 app = FastAPI(title="AI Hub API", version="0.1.0")
+logger = logging.getLogger(__name__)
+_training_lock = threading.Lock()
 
 engine: Optional[MLEngine] = None
 MODELS_DIR = Path("models")
@@ -49,6 +54,8 @@ class PredictRequest(BaseModel):
             raise ValueError("data must contain 1-256 rows of 1-512 features")
         if len({len(row) for row in value}) != 1:
             raise ValueError("every row must contain the same number of features")
+        if any(not math.isfinite(entry) for row in value for entry in row):
+            raise ValueError("prediction features must be finite")
         return value
 
 
@@ -83,18 +90,21 @@ def status():
 @app.post("/train", dependencies=[Depends(require_api_key)])
 def train(request: TrainRequest):
     global engine
+    if not _training_lock.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Training already in progress")
     try:
-        engine = MLEngine(request.input_dim, request.hidden_dim, request.output_dim)
-
+        # Do not replace the current working model until training succeeds.
+        candidate = MLEngine(request.input_dim, request.hidden_dim, request.output_dim)
         X = torch.randn(1000, request.input_dim)
         y = torch.randint(0, request.output_dim, (1000,))
 
-        result = engine.train(X, y, request.epochs, learning_rate=request.learning_rate)
-
-        eval_result = engine.evaluate(X[:100], y[:100])
+        result = candidate.train(X, y, request.epochs, learning_rate=request.learning_rate)
+        eval_result = candidate.evaluate(X[:100], y[:100])
+        engine = candidate
 
         return {
             "status": "trained",
+            "data_source": "synthetic_demo_random_labels",
             "model_info": {
                 "input_dim": request.input_dim,
                 "hidden_dim": request.hidden_dim,
@@ -103,8 +113,11 @@ def train(request: TrainRequest):
             "training": result,
             "evaluation": eval_result,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Model training failed")
+        raise HTTPException(status_code=500, detail="Training failed")
+    finally:
+        _training_lock.release()
 
 
 @app.post("/predict", dependencies=[Depends(require_api_key)])
