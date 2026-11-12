@@ -175,12 +175,17 @@ def train_data(dataset_file: Path, api_url: str | None):
     except (ValidationError, ValueError, OSError) as exc:
         raise click.ClickException(f"Invalid training dataset: {exc}") from exc
 
+    from urllib.parse import urlsplit
+
     url = (api_url or API_BASE_URL).rstrip("/")
-    if not (url.startswith("http://127.0.0.1:") or
-            url.startswith("http://localhost:") or
-            url.startswith("https://")):
+    parsed = urlsplit(url)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or (parsed.scheme == "http" and parsed.hostname not in local_hosts)):
         raise click.ClickException(
-            "Use HTTPS for remote servers or HTTP on localhost only"
+            "Use HTTPS for remote servers or HTTP on localhost only; "
+            "credentials and query fragments in API URLs are not permitted"
         )
     try:
         response = _api_session.post(
