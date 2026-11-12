@@ -36,7 +36,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    command: ["streamlit", "run", "src/ai_hub/web.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    command: ["streamlit", "run", "src/ai_hub/web.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]
     init: true
     restart: unless-stopped
     environment:
@@ -47,6 +47,13 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # Override the production image's API-port healthcheck for Streamlit.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     security_opt:
       - no-new-privileges:true
     cap_drop:
