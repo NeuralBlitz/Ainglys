@@ -85,14 +85,24 @@ class DatasetVersionManager:
         return folder
 
     def _tracked_files(self):
-        for file in sorted(self.root.rglob("*")):
-            relative = file.relative_to(self.root)
-            if any(part.startswith(".") for part in relative.parts):
-                continue
-            if file.is_symlink() or not file.is_file():
-                continue
-            self._safe_target(relative.as_posix())
-            yield file, relative
+        # Prune the internal snapshot store, VCS metadata, hidden directories,
+        # and symlinked folders *before* walking them. A recursive rglob would
+        # scan every historical snapshot on every new commit.
+        for directory, subdirs, filenames in os.walk(self.root, followlinks=False):
+            base = Path(directory)
+            subdirs[:] = sorted(
+                name for name in subdirs
+                if not name.startswith(".") and not (base / name).is_symlink()
+            )
+            for name in sorted(filenames):
+                if name.startswith("."):
+                    continue
+                file = base / name
+                if file.is_symlink() or not file.is_file():
+                    continue
+                relative = file.relative_to(self.root)
+                self._safe_target(relative.as_posix())
+                yield file, relative
 
     def _manifest(self, version: str) -> tuple[Path, dict]:
         folder = self._version_dir(version)
