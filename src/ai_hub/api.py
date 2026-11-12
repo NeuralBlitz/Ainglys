@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, ValidationError
 from typing import List, Optional, Dict, Any
 import torch
 import json
@@ -61,6 +61,45 @@ class PredictRequest(BaseModel):
 
 class SaveRequest(BaseModel):
     model_name: str = "model"
+
+
+_MAX_MODEL_BYTES = 256 * 1024 * 1024
+_MAX_METADATA_BYTES = 64 * 1024
+
+
+def _model_artifacts(model_name: str):
+    """Confine model artifact operations to regular, named files."""
+    name = validate_model_name(model_name)
+    model_path = MODELS_DIR / f"{name}.pt"
+    metadata_path = MODELS_DIR / f"{name}.json"
+    if model_path.is_symlink() or metadata_path.is_symlink():
+        raise HTTPException(status_code=422, detail="Model artifact symlinks are not permitted")
+    return model_path, metadata_path
+
+
+def _load_model_metadata(name: str, metadata_path: Path) -> dict:
+    if not metadata_path.is_file():
+        raise HTTPException(status_code=404, detail="Model metadata not found")
+    if metadata_path.stat().st_size > _MAX_METADATA_BYTES:
+        raise HTTPException(status_code=422, detail="Model metadata exceeds allowed size")
+    try:
+        with metadata_path.open(encoding="utf-8") as source:
+            metadata = json.load(source)
+        if not isinstance(metadata, dict) or any(
+            key not in metadata for key in ("input_dim", "hidden_dim", "output_dim")
+        ):
+            raise ValueError("Required model dimensions missing")
+        if metadata.get("model_name", name) != name:
+            raise ValueError("Model metadata does not match identifier")
+        request = TrainRequest.model_validate(metadata)
+        return {
+            "model_name": name,
+            "input_dim": request.input_dim,
+            "hidden_dim": request.hidden_dim,
+            "output_dim": request.output_dim,
+        }
+    except (ValueError, TypeError, json.JSONDecodeError, ValidationError):
+        raise HTTPException(status_code=422, detail="Invalid model metadata")
 
 
 @app.get("/")
@@ -158,8 +197,8 @@ def save_model(request: SaveRequest):
         raise HTTPException(status_code=400, detail="No trained model to save")
 
     try:
-        model_name = validate_model_name(request.model_name)
-        model_path = MODELS_DIR / f"{model_name}.pt"
+        model_path, metadata_path = _model_artifacts(request.model_name)
+        model_name = request.model_name
         engine.save(str(model_path))
 
         metadata = {
@@ -169,7 +208,6 @@ def save_model(request: SaveRequest):
             "output_dim": engine.model.layers[2].out_features,
         }
 
-        metadata_path = MODELS_DIR / f"{model_name}.json"
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
@@ -183,27 +221,30 @@ def save_model(request: SaveRequest):
 @app.post("/load/{model_name}", dependencies=[Depends(require_api_key)])
 def load_model(model_name: str):
     global engine
+    if not _training_lock.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Model update already in progress")
     try:
-        validate_model_name(model_name)
-        model_path = MODELS_DIR / f"{model_name}.pt"
-        metadata_path = MODELS_DIR / f"{model_name}.json"
-
-        if not model_path.exists():
+        model_path, metadata_path = _model_artifacts(model_name)
+        if not model_path.is_file():
             raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
+        if model_path.stat().st_size > _MAX_MODEL_BYTES:
+            raise HTTPException(status_code=422, detail="Model artifact exceeds allowed size")
 
-        with open(metadata_path, "r") as f:
-            metadata = json.load(f)
-
-        engine = MLEngine(
+        metadata = _load_model_metadata(model_name, metadata_path)
+        candidate = MLEngine(
             metadata["input_dim"], metadata["hidden_dim"], metadata["output_dim"]
         )
-        engine.load(str(model_path))
-
+        candidate.load(str(model_path))
+        # Preserve the old, functioning model if deserialization fails.
+        engine = candidate
         return {"status": "loaded", "model_name": model_name, "metadata": metadata}
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Model loading failed")
+        raise HTTPException(status_code=422, detail="Invalid or incompatible model artifact")
+    finally:
+        _training_lock.release()
 
 
 @app.get("/models", dependencies=[Depends(require_api_key)])
