@@ -9,6 +9,54 @@ permissions:
   contents: read
 
 jobs:
+  integrity:
+    name: Lockfile and Compose configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Verify committed dependency lock
+        run: uv lock --check
+      - name: Verify minimal Compose configuration
+        env:
+          AI_HUB_API_KEY: "ci-only-development-key-at-least-32-characters"
+        run: docker compose -f compose.core.yml config --quiet
+
+  extended-tests:
+    name: Extended Python suite (3.11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install and validate dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          python -m pip check
+      - name: Run repository and ACCA tests with coverage
+        env:
+          AI_HUB_API_KEY: ci-only-development-key-at-least-32-characters
+          JWT_SECRET_KEY: ci-only-jwt-test-secret-at-least-32-characters
+        run: |
+          mkdir -p test-results
+          python -m pytest tests/ projects/acca/tests/ -q --tb=short \
+            --junitxml=test-results/extended.xml \
+            --cov=ai_hub --cov-report=xml:test-results/coverage.xml
+      - name: Archive test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extended-tests-python311
+          path: test-results/
+          if-no-files-found: warn
+
   core-tests:
     name: Core smoke tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
