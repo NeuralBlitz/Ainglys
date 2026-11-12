@@ -64,6 +64,14 @@ class TokenData(BaseModel):
     username: Optional[str] = None
     scopes: List[str] = []
 
+    def __getitem__(self, key: str):
+        """Support JWT-style claim indexing in legacy integrations."""
+        if key == "sub":
+            return self.username
+        if key == "scopes":
+            return self.scopes
+        raise KeyError(key)
+
 
 # Empty by default: provision users from a real identity store at deployment.
 # Never ship example accounts or passwords in the application runtime.
