@@ -20,6 +20,23 @@ class PaperSection:
     subsections: Optional[List["PaperSection"]] = None
 
 
+class SectionCollection(list):
+    """Ordered sections with legacy title-based lookups."""
+
+    def __contains__(self, item):
+        if isinstance(item, str):
+            return any(section.title == item for section in self)
+        return super().__contains__(item)
+
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            for section in self:
+                if section.title == item:
+                    return section.content
+            raise KeyError(item)
+        return super().__getitem__(item)
+
+
 class PaperGenerator:
     """
     Generate research papers automatically from experimental results.
@@ -31,17 +48,20 @@ class PaperGenerator:
     - Citations and references
     """
 
-    def __init__(self, title: str, authors: List[str], project_name: str):
+    def __init__(self, title: str = "Research Manuscript", authors: Optional[List[str]] = None,
+                 project_name: str = "Research Project"):
         self.title = title
-        self.authors = authors
+        self.authors = list(authors) if authors else ["Author not specified"]
         self.project_name = project_name
-        self.sections: List[PaperSection] = []
+        self.sections: List[PaperSection] = SectionCollection()
         self.references: List[str] = []
         self.figures: List[Dict] = []
         self.tables: List[Dict] = []
 
     def generate_latex(self) -> str:
-        """Generate complete LaTeX document."""
+        """Generate a LaTeX draft from explicitly supplied manuscript content."""
+        if not self.sections:
+            raise ValueError("Cannot generate a manuscript without sections")
         latex = []
 
         # Preamble
@@ -103,12 +123,14 @@ class PaperGenerator:
         return "\n".join(latex)
 
     def _generate_abstract(self) -> str:
-        """Generate abstract from experimental results."""
+        """Avoid making empirical or novelty claims absent supporting evidence."""
+        for section in self.sections:
+            if section.title.casefold() == "abstract":
+                return section.content
         return (
-            f"This paper presents {self.project_name}, a novel approach to "
-            f"machine learning. Our experiments demonstrate significant improvements "
-            f"over baseline methods. The proposed architecture achieves state-of-the-art "
-            f"performance on benchmark datasets."
+            f"This manuscript documents the research project {self.project_name}. "
+            "Any performance comparisons, novelty claims, and conclusions require "
+            "independent supporting evidence from the accompanying experiments."
         )
 
     def _render_section(self, section: PaperSection, level: int = 1) -> List[str]:
@@ -162,6 +184,30 @@ class PaperGenerator:
 
         return "\n".join(latex)
 
+    def add_section(self, title: str, content: str):
+        """Add or replace a named section while preserving insertion order."""
+        if not title or not isinstance(content, str):
+            raise ValueError("A nonempty title and string content are required")
+        for i, section in enumerate(self.sections):
+            if section.title == title:
+                self.sections[i] = PaperSection(title, content)
+                return
+        self.sections.append(PaperSection(title, content))
+
+    def add_figure(self, image_path: str, caption: str):
+        """Record a figure, leaving image verification to the publishing process."""
+        self.figures.append({"path": image_path, "caption": caption})
+
+    def add_table(self, dataframe, caption: str):
+        """Record real data rows without inventing benchmark values."""
+        if not hasattr(dataframe, "columns") or not hasattr(dataframe, "itertuples"):
+            raise TypeError("Expected a pandas-like DataFrame")
+        self.tables.append({
+            "columns": [str(col) for col in dataframe.columns],
+            "rows": [list(row) for row in dataframe.itertuples(index=False, name=None)],
+            "caption": caption,
+        })
+
     def add_introduction(self, content: str):
         """Add introduction section."""
         self.sections.append(PaperSection("Introduction", content))
@@ -190,33 +236,35 @@ The algorithm proceeds as follows:
         self.sections.append(PaperSection("Methodology", content))
 
     def add_experiments(self, results: Dict[str, Any]):
-        """Add experiments section with results."""
-        content = "We evaluate our method on the following benchmarks:\\n\n"
-
-        # Add results table
-        if "metrics" in results:
-            content += "\\textbf{Main Results.} Table~\\ref{tab:1} summarizes our performance.\n\n"
-
-            self.tables.append(
-                {
-                    "caption": "Experimental Results",
-                    "columns": ["Method", "Accuracy", "F1-Score", "Training Time"],
-                    "rows": [
-                        ["Baseline", "85.2", "84.1", "120s"],
-                        [self.project_name, "92.4", "91.8", "98s"],
-                        ["Improvement", "+7.2", "+7.7", "-18%"],
-                    ],
-                }
-            )
-
+        """Include only supplied experimental measurements, not fabricated baselines."""
+        metrics = results.get("metrics", {})
+        content = "Experimental results provided for this run are reported below."
+        if isinstance(metrics, dict) and metrics:
+            # Supports both {metric: value} and {model_name: {metric: value}}.
+            if all(isinstance(v, dict) for v in metrics.values()):
+                fields = sorted({key for values in metrics.values() for key in values})
+                rows = [[name] + [values.get(key, "") for key in fields]
+                        for name, values in metrics.items()]
+                self.tables.append({
+                    "caption": "Supplied experimental measurements",
+                    "columns": ["Model"] + fields,
+                    "rows": rows,
+                })
+            else:
+                self.tables.append({
+                    "caption": "Supplied experimental measurements",
+                    "columns": ["Metric", "Value"],
+                    "rows": [[name, value] for name, value in metrics.items()],
+                })
+        else:
+            content += " No measurements were supplied; no performance claims are made."
         self.sections.append(PaperSection("Experiments", content))
 
     def add_conclusion(self):
         """Add conclusion section."""
         content = (
-            f"We presented {self.project_name}, a novel approach that achieves "
-            f"state-of-the-art performance. Future work will explore extensions to "
-            f"larger-scale problems and theoretical analysis of convergence properties."
+            f"This manuscript describes {self.project_name}. Its claims should be "
+            "evaluated using reproducible experiments, baselines and independent review."
         )
         self.sections.append(PaperSection("Conclusion", content))
 
