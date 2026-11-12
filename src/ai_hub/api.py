@@ -203,6 +203,16 @@ def train_supervised(request: SupervisedTrainRequest):
             validation_loss = torch.nn.functional.cross_entropy(
                 logits, validation_y.to(logits.device)
             ).item()
+        # Reject numerically unstable outcomes before publishing any model.
+        quality_metrics = (
+            training.get("final_loss"), validation.get("accuracy"), validation_loss
+        )
+        if any(
+            not isinstance(value, (int, float)) or not math.isfinite(value)
+            for value in quality_metrics
+        ):
+            raise ValueError("Training or validation produced nonfinite metrics")
+
         # Commit only after both training and held-out evaluation succeed.
         engine = candidate
         return {
