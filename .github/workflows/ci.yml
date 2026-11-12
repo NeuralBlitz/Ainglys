@@ -84,6 +84,22 @@ jobs:
           code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/models)
           test "$code" = 401
           curl --fail --silent -H "X-API-Key: $AI_HUB_API_KEY" http://127.0.0.1:8000/models
+      - name: Build and smoke-test optional Streamlit UI
+        run: |
+          docker compose --profile ui build ui
+          docker compose --profile ui up -d ui
+          ready=0
+          for attempt in $(seq 1 50); do
+            if curl --fail --silent http://127.0.0.1:8501/_stcore/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+          docker compose --profile ui ps
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8501/_stcore/health)
+          test "$code" = 200
       - name: Verify scoped credentials against running Docker API
         run: |
           export CI_READ_TOKEN="ci-scoped-read-client-credential-32-characters"
@@ -103,7 +119,7 @@ jobs:
         if: always()
         run: |
           docker compose logs api || true
-          docker compose down -v --remove-orphans
+          docker compose --profile ui down -v --remove-orphans
   core-tests:
     name: Core smoke tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
