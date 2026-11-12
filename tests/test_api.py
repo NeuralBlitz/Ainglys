@@ -136,3 +136,45 @@ class TestAPIAuthentication:
         for bad in (float("nan"), float("inf"), float("-inf")):
             with pytest.raises(ValidationError):
                 PredictRequest.model_validate({"data": [[bad]]})
+
+
+class TestModelArtifactSafety:
+    def test_invalid_metadata_preserves_current_model(self, monkeypatch, tmp_path):
+        import shutil
+        import ai_hub.api as api_module
+        monkeypatch.setattr(api_module, "MODELS_DIR", tmp_path)
+        response = client.post("/train", json={
+            "input_dim": 3, "hidden_dim": 4, "output_dim": 2, "epochs": 1
+        })
+        assert response.status_code == 200
+        assert client.post("/save", json={"model_name": "good"}).status_code == 200
+        active_model = api_module.engine
+        shutil.copyfile(tmp_path / "good.pt", tmp_path / "bad.pt")
+        (tmp_path / "bad.json").write_text(
+            '{"model_name": "bad", "input_dim": 1000000, "hidden_dim": 4, "output_dim": 2}'
+        )
+        result = client.post("/load/bad")
+        assert result.status_code == 422
+        assert api_module.engine is active_model
+
+    def test_symlinked_artifact_cannot_be_overwritten(self, monkeypatch, tmp_path):
+        import ai_hub.api as api_module
+        storage = tmp_path / "models"
+        storage.mkdir()
+        outside = tmp_path / "outside.pt"
+        outside.write_bytes(b"protected-file")
+        (storage / "alias.pt").symlink_to(outside)
+        monkeypatch.setattr(api_module, "MODELS_DIR", storage)
+        assert client.post("/train", json={
+            "input_dim": 3, "hidden_dim": 4, "output_dim": 2, "epochs": 1
+        }).status_code == 200
+        result = client.post("/save", json={"model_name": "alias"})
+        assert result.status_code == 422
+        assert outside.read_bytes() == b"protected-file"
+
+    def test_oversize_model_load_rejected_without_loading(self, monkeypatch, tmp_path):
+        import ai_hub.api as api_module
+        monkeypatch.setattr(api_module, "MODELS_DIR", tmp_path)
+        monkeypatch.setattr(api_module, "_MAX_MODEL_BYTES", 4)
+        (tmp_path / "oversize.pt").write_bytes(b"not-a-pytorch-model")
+        assert client.post("/load/oversize").status_code == 422
