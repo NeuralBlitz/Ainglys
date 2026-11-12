@@ -135,7 +135,7 @@ def test_legacy_pickle_snapshot_is_never_unpickled(tmp_path):
 
 
 def test_snapshot_max_size_rejection():
-    with pytest.raises(ValueError, match="limit"):
+    with pytest.raises(ValueError, match="exceeds the allowed size"):
         decode_dataset(b"x" * (MAX_DATASET_BYTES + 1), "json")
 
 
