@@ -193,6 +193,7 @@ def train_data(dataset_file: Path, api_url: str | None):
             json=request.model_dump(),
             headers={"X-API-Key": api_key},
             timeout=(10, 180),
+            allow_redirects=False,
         )
         response.raise_for_status()
         result = response.json()
