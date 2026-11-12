@@ -29,6 +29,7 @@ class APIPrincipal:
     client_id: str
     scopes: frozenset[str]
     fingerprint: str
+    legacy: bool = False
 
 
 def token_sha256(api_key: str) -> str:
@@ -94,7 +95,7 @@ def authenticate(api_key: str | None) -> APIPrincipal | None:
             raise IdentityConfigError("Legacy API key is not configured") from exc
         if not api_key or not secrets.compare_digest(api_key, legacy):
             return None
-        return APIPrincipal("legacy", SCOPES, fingerprint)
+        return APIPrincipal("legacy", SCOPES, fingerprint, legacy=True)
 
     if not api_key or not 32 <= len(api_key) <= 1024:
         return None
