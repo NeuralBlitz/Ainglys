@@ -1,0 +1,46 @@
+# One-shot targeted lockfile upgrade for the Ainglys dependency baseline.
+# The workflow deletes itself in the verified lockfile commit.
+name: Upgrade Pygments lock (one-shot)
+
+on:
+  push:
+    branches: ["upgrade/pygments-20261112"]
+    paths:
+      - ".github/workflows/refresh-pygments-lock-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.repository == 'NeuralBlitz/Ainglys' && github.ref == 'refs/heads/upgrade/pygments-20261112'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+      - uses: astral-sh/setup-uv@v6
+      - name: Upgrade only Pygments and verify the lock
+        run: |
+          uv lock --upgrade-package pygments
+          uv lock --check
+          python - <<'PY'
+          import pathlib, re
+          lock = pathlib.Path("uv.lock").read_text()
+          match = re.search(r'\[\[package\]\]\s*name = "pygments"\s*version = "([^"]+)"', lock)
+          if not match:
+              raise SystemExit("Pygments missing from dependency lock")
+          print("Resolved Pygments:", match.group(1))
+          major, minor, patch = [int(v) for v in match.group(1).split(".")[:3]]
+          if (major, minor, patch) < (2, 20, 0):
+              raise SystemExit("Pygments update did not reach 2.20.0")
+          PY
+      - name: Commit only lockfile and remove the one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git rm .github/workflows/refresh-pygments-lock-once.yml
+          git commit -m "build: upgrade locked Pygments dependency"
+          git push origin HEAD:refs/heads/upgrade/pygments-20261112
