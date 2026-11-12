@@ -23,12 +23,19 @@ FROM base AS production
 
 COPY . .
 
-EXPOSE 8000 8501
+# Run services as an unprivileged user; model artifacts have an explicit write root.
+RUN useradd --system --uid 10001 --create-home appuser \
+    && mkdir -p /app/models \
+    && chown -R appuser:appuser /app
+USER appuser
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+EXPOSE 8000
 
-CMD ["sh", "-c", "ai-hub api start --host 0.0.0.0 --port 8000 & streamlit run src/ai_hub/web.py --server.port 8501 --server.address 0.0.0.0"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl --fail --silent http://127.0.0.1:8000/health || exit 1
+
+# Exactly one foreground process; the optional Streamlit UI is a separate Compose service.
+CMD ["uvicorn", "ai_hub.api:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM base AS development
 
