@@ -548,6 +548,12 @@ cd ../newnn && pip install -e .                                # Neuromorphic
 cd ../gcaa && pip install -e .                                 # Cellular Automata
 ```
 
+## Security scanning and dependency maintenance
+
+Ainglys includes a Python CodeQL analysis workflow (`.github/workflows/codeql.yml`) on pull requests, `main` changes and a weekly schedule. GitHub Dependabot checks the uv dependency lock, ACCA's Python dependencies, GitHub Actions and Docker weekly. The [security policy](SECURITY.md) describes vulnerability reporting and supported development branches.
+
+These are **detection and maintenance measures**, not a guarantee that the research software is production-safe. Branch protection and required-status-check enforcement still need repository settings changes; see [issue #5](https://github.com/NeuralBlitz/Ainglys/issues/5).
+
 ## Testing and Verification
 
 The latest completed core smoke workflow prior to this revision passed **23 tests on Python 3.11 and 23 tests on Python 3.12** (November 11, 2026). This establishes a limited clean-install and core API/ACCA check, not full-repository correctness or coverage. New extended tests and lockfile/Compose checks run in GitHub Actions, with their current status visible on the [Actions page](https://github.com/NeuralBlitz/Ainglys/actions).
