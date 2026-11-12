@@ -584,6 +584,38 @@ class DashboardManager:
         return viz_types
 
 
+# Backward-compatible names used by notebooks, examples and research tests.
+class MetricsPlotter(MetricsVisualizer):
+    def plot_training_history(self, train_loss, val_loss, train_acc, val_acc):
+        """Plot supplied per-epoch loss and accuracy curves."""
+        series = {
+            "train_loss": train_loss, "val_loss": val_loss,
+            "train_acc": train_acc, "val_acc": val_acc,
+        }
+        if not PLOTLY_AVAILABLE:
+            return None
+        if not any(series.values()):
+            raise ValueError("At least one nonempty metric series is required")
+        fig = go.Figure()
+        for label, values in series.items():
+            if values is not None and len(values):
+                fig.add_trace(go.Scatter(
+                    x=list(range(len(values))), y=list(values),
+                    mode="lines+markers", name=label
+                ))
+        fig.update_layout(
+            title="Training Metrics", xaxis_title="Epoch",
+            yaxis_title="Value", template=self.config.theme
+        )
+        return fig.to_dict()
+
+
+class DashboardBuilder(DashboardManager):
+    def __init__(self, title: str = "AI Hub Dashboard"):
+        self.title = title
+        super().__init__(DashboardConfig(title=title))
+
+
 # Export
 __all__ = [
     "DashboardManager",
@@ -593,4 +625,6 @@ __all__ = [
     "HyperparameterLandscapeVisualizer",
     "DatasetVisualizer",
     "PLOTLY_AVAILABLE",
+    "MetricsPlotter",
+    "DashboardBuilder",
 ]
