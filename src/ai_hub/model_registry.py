@@ -5,6 +5,7 @@ Enhanced Model Registry with Versioning, A/B Testing, and Model Cards
 import json
 import hashlib
 import shutil
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
@@ -26,6 +27,11 @@ class ModelVersion:
     tags: List[str]
     parent_version: Optional[str] = None
     description: str = ""
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Compatibility alias for saved hyperparameter metadata."""
+        return self.parameters
 
 
 @dataclass
@@ -84,20 +90,34 @@ class ModelRegistry:
     """
 
     def __init__(self, registry_dir: str = "models/registry"):
-        self.registry_dir = Path(registry_dir)
-        self.registry_dir.mkdir(parents=True, exist_ok=True)
-
-        # Subdirectories
-        self.versions_dir = self.registry_dir / "versions"
-        self.cards_dir = self.registry_dir / "cards"
-        self.ab_tests_dir = self.registry_dir / "ab_tests"
-
-        for d in [self.versions_dir, self.cards_dir, self.ab_tests_dir]:
-            d.mkdir(exist_ok=True)
-
-        # In-memory index
         self.index: Dict[str, List[ModelVersion]] = {}
-        self._load_index()
+        self.registry_dir = registry_dir
+
+    @property
+    def registry_dir(self) -> Path:
+        return self._registry_dir
+
+    @registry_dir.setter
+    def registry_dir(self, directory):
+        """Switch to an independent registry without leaking previous indexes."""
+        self._registry_dir = Path(directory)
+        self._registry_dir.mkdir(parents=True, exist_ok=True)
+        self.versions_dir = self._registry_dir / "versions"
+        self.cards_dir = self._registry_dir / "cards"
+        self.ab_tests_dir = self._registry_dir / "ab_tests"
+        for folder in (self.versions_dir, self.cards_dir, self.ab_tests_dir):
+            folder.mkdir(parents=True, exist_ok=True)
+        if hasattr(self, "index"):
+            self.index = {}
+            self._load_index()
+
+    @staticmethod
+    def _safe_component(text: str) -> str:
+        if not isinstance(text, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", text):
+            raise ValueError("Invalid model name or version")
+        if ".." in text:
+            raise ValueError("Invalid model name or version")
+        return text
 
     def _load_index(self):
         """Load registry index from disk."""
@@ -154,9 +174,10 @@ class ModelRegistry:
         Returns:
             ModelVersion object
         """
-        # Generate version if not provided
+        model_name = self._safe_component(model_name)
         if version is None:
             version = self._generate_version(model_name)
+        version = self._safe_component(version)
 
         # Save model
         version_dir = self.versions_dir / model_name / version
@@ -230,8 +251,8 @@ class ModelRegistry:
             intended_use=["research", "experimentation"],
             factors=["architecture_search", "meta_learning"],
             performance_metrics=metrics or {},
-            evaluation_data="test_dataset",
-            training_data="train_dataset",
+            evaluation_data="not specified",
+            training_data="not specified",
             ethical_considerations="Research use only",
             caveats="Experimental model",
             parent_models=[],
@@ -240,6 +261,18 @@ class ModelRegistry:
 
         card_path = self.cards_dir / f"{model_name}_{version}_card.json"
         card.save(str(card_path))
+
+    def get_model_path(self, model_name: str, version: ModelVersion | str) -> Path:
+        """Return the bounded filesystem path of a registered model state."""
+        model_name = self._safe_component(model_name)
+        version_id = version.version_id if isinstance(version, ModelVersion) else version
+        version_id = self._safe_component(version_id)
+        return self.versions_dir / model_name / version_id / "model.pt"
+
+    def get_model(self, model_name: str, version: ModelVersion | str):
+        """Load a registered state dict (safe weights-only serialization)."""
+        version_id = version.version_id if isinstance(version, ModelVersion) else version
+        return self.load_model(model_name, version_id)
 
     def load_model(
         self, model_name: str, version: str, model_class: Optional[type] = None
@@ -255,7 +288,7 @@ class ModelRegistry:
         Returns:
             Loaded model
         """
-        model_path = self.versions_dir / model_name / version / "model.pt"
+        model_path = self.get_model_path(model_name, version)
 
         if not model_path.exists():
             raise ValueError(f"Model {model_name} version {version} not found")
