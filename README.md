@@ -133,6 +133,26 @@ AI Hub is a research-oriented machine learning platform that combines:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Authenticated request budgets (single-process)
+
+The Ainglys API applies fail-closed request budgets **after** validating `X-API-Key`. Limits are process-local, shared by every client using the same configured key, and reset on key rotation. The unauthenticated `/health` and `/` endpoints are not metered.
+
+| Environment setting | Default | Permitted range |
+| --- | ---: | --- |
+| `AI_HUB_REQUESTS_PER_MINUTE` | 600 | 1–10,000 |
+| `AI_HUB_TRAININGS_PER_MINUTE` | 60 | 1 up to `AI_HUB_REQUESTS_PER_MINUTE` |
+
+The training budget is a subset of the total budget and covers both `POST /train` and `POST /train/supervised`. A rejected attempt returns HTTP **429** with `Retry-After` in seconds. An invalid quota setting returns **503** instead of silently turning off limits. Failed authentication is rejected before quota accounting.
+
+For local development:
+
+```bash
+export AI_HUB_REQUESTS_PER_MINUTE=600
+export AI_HUB_TRAININGS_PER_MINUTE=60
+```
+
+These controls protect **one API process only**. They are not a distributed quota, a multi-user rate policy, an identity system, or a resource-consumption guarantee. For multiworker/public deployments, implement a centralized store or gateway limiter, per-principal accounting, scoped authorization, maximum job-runtime enforcement and operational monitoring before claiming production readiness. See [security issue #3](https://github.com/NeuralBlitz/Ainglys/issues/3).
+
 ## API authentication (required)
 
 Sensitive API operations now require a server-configured API key. Set the same strong value in the API deployment and the CLI/Streamlit environment. The server intentionally refuses requests when the key is missing or shorter than 32 characters.
