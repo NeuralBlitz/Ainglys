@@ -21,7 +21,9 @@ jobs:
       - name: Verify minimal Compose configuration
         env:
           AI_HUB_API_KEY: "ci-only-development-key-at-least-32-characters"
-        run: docker compose -f compose.core.yml config --quiet
+        run: |
+          docker compose config --quiet
+          docker compose -f compose.core.yml config --quiet
 
   extended-tests:
     name: Extended Python suite (3.11)
@@ -57,6 +59,32 @@ jobs:
           path: test-results/
           if-no-files-found: warn
 
+  container-smoke:
+    name: Docker image build and API health smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      AI_HUB_API_KEY: ci-container-only-api-key-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the default container image
+        run: docker compose build api
+      - name: Start API and verify authentication boundary
+        run: |
+          docker compose up -d --no-deps api
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8000/health
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/models)
+          test "$code" = 401
+          curl --fail --silent -H "X-API-Key: $AI_HUB_API_KEY" http://127.0.0.1:8000/models
+      - name: Capture logs and remove container
+        if: always()
+        run: |
+          docker compose logs api || true
+          docker compose down -v --remove-orphans
   core-tests:
     name: Core smoke tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
