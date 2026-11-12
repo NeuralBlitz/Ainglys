@@ -220,6 +220,18 @@ Make predictions:
 ai-hub model predict --data 0.1 --data 0.2 --data 0.3
 ```
 
+### Train from an actual labeled dataset (new)
+
+The legacy `ai-hub model train` command trains on random synthetic labels as a **demo**. To train on your own numeric classification records with a disjoint stratified holdout validation set, supply JSON:
+
+```bash
+ai-hub model train-data training-example.json
+```
+
+The new authenticated `POST /train/supervised` endpoint requires 16–512 records and 2–32 classes, validates input dimensions and values, and reports the training-set size, held-out validation-set size, accuracy, and cross-entropy. A fixed seed reproduces the index split; a successful run replaces the active in-memory model. No real-world performance claim is implied by the demo data.
+
+Read [Supervised Training: API, CLI, Schema and Limitations](docs/SUPERVISED_TRAINING.md) for sample JSON, secure API configuration, evaluation methodology and scientific limitations.
+
 ### Direct API Calls
 
 ```bash
