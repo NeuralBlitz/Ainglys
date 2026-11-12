@@ -33,6 +33,7 @@ class TestAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "trained"
+        assert data["data_source"] == "synthetic_demo_random_labels"
         assert "training" in data
         assert "evaluation" in data
 
@@ -118,3 +119,20 @@ class TestAPIAuthentication:
     def test_prediction_batch_is_bounded(self):
         response = client.post("/predict", json={"data": [[0.0] * 600]})
         assert response.status_code == 422
+
+
+    def test_concurrent_training_is_rejected(self):
+        import ai_hub.api as api_module
+        assert api_module._training_lock.acquire(blocking=False)
+        try:
+            response = client.post("/train", json={"epochs": 1})
+            assert response.status_code == 429
+        finally:
+            api_module._training_lock.release()
+
+    def test_nonfinite_prediction_inputs_are_rejected(self):
+        from pydantic import ValidationError
+        from ai_hub.api import PredictRequest
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValidationError):
+                PredictRequest.model_validate({"data": [[bad]]})
