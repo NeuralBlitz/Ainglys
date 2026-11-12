@@ -8,6 +8,8 @@ import pandas as pd
 import json
 from typing import List, Dict, Any
 
+from ai_hub.dashboard_training import parse_supervised_upload, safe_training_api_base, MAX_UPLOAD_BYTES
+
 API_BASE = os.environ.get("AI_HUB_API_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="AI Hub", page_icon="🤖", layout="wide")
@@ -33,6 +35,22 @@ def train_model(input_dim: int, hidden_dim: int, output_dim: int, epochs: int):
             "epochs": epochs,
         },
     )
+    return response.json()
+
+
+def train_supervised_model(dataset):
+    """Train on validated uploaded data; do not follow cross-host redirects."""
+    api_key = os.environ.get("AI_HUB_API_KEY", "")
+    if len(api_key) < 32:
+        raise ValueError("Configure AI_HUB_API_KEY before submitting training data")
+    response = _api_session.post(
+        f"{safe_training_api_base(API_BASE)}/train/supervised",
+        json=dataset.model_dump(),
+        headers={"X-API-Key": api_key},
+        timeout=(10, 180),
+        allow_redirects=False,
+    )
+    response.raise_for_status()
     return response.json()
 
 
@@ -84,7 +102,9 @@ def main():
 
     st.success("✅ API Connected")
 
-    tab1, tab2, tab3 = st.tabs(["🎯 Train", "🔮 Predict", "💾 Models"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["🎯 Demo Train", "📊 Supervised Dataset", "🔮 Predict", "💾 Models"]
+    )
 
     with tab1:
         st.header("Train a Model")
@@ -114,6 +134,57 @@ def main():
                     st.error(f"Training failed: {result}")
 
     with tab2:
+        st.header("Supervised training with held-out validation")
+        st.caption(
+            "Train on a labeled numeric JSON dataset. Records are split "
+            "by class into disjoint training and validation sets. This does "
+            "not establish performance on independent, grouped, or time-series data."
+        )
+        uploaded = st.file_uploader(
+            "Upload JSON: features, labels, and optional training settings",
+            type=["json"],
+            key="supervised_upload",
+        )
+        if uploaded is not None:
+            try:
+                if uploaded.size > MAX_UPLOAD_BYTES:
+                    raise ValueError("Uploaded JSON exceeds the 1 MB limit")
+                request = parse_supervised_upload(uploaded.getvalue())
+                classes = len(set(request.labels))
+                cols = st.columns(3)
+                cols[0].metric("Samples", len(request.labels))
+                cols[1].metric("Features", len(request.features[0]))
+                cols[2].metric("Classes", classes)
+                st.caption(
+                    f"Validation fraction: {request.validation_fraction:.0%} "
+                    f"· Seed: {request.seed} · Epochs: {request.epochs}"
+                )
+                if st.button("Train on uploaded dataset", type="primary"):
+                    with st.spinner("Training and evaluating held-out records..."):
+                        try:
+                            result = train_supervised_model(request)
+                            if result.get("status") != "trained":
+                                raise ValueError("Training did not produce a usable model")
+                            st.success("Training complete; held-out validation measured")
+                            meta = result["dataset"]
+                            validation = result["validation"]
+                            metrics = st.columns(4)
+                            metrics[0].metric("Train records", meta["training_samples"])
+                            metrics[1].metric("Holdout records", meta["validation_samples"])
+                            metrics[2].metric("Holdout accuracy", f"{validation['accuracy']:.2%}")
+                            metrics[3].metric(
+                                "Cross-entropy", f"{validation['cross_entropy']:.4f}"
+                            )
+                            st.info(
+                                "These are held-out metrics on the uploaded dataset, "
+                                "not proof of independent real-world performance."
+                            )
+                        except (requests.exceptions.RequestException, ValueError, KeyError) as error:
+                            st.error(f"Supervised training failed: {error}")
+            except ValueError as error:
+                st.error(f"Dataset validation failed: {error}")
+
+    with tab3:
         st.header("Make Predictions")
 
         status = get_status()
@@ -161,7 +232,7 @@ def main():
                     else:
                         st.error(f"Prediction failed: {result}")
 
-    with tab3:
+    with tab4:
         st.header("Model Management")
 
         if st.button("🔄 Refresh Models"):

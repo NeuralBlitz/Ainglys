@@ -232,6 +232,17 @@ The new authenticated `POST /train/supervised` endpoint requires 16–512 record
 
 Read [Supervised Training: API, CLI, Schema and Limitations](docs/SUPERVISED_TRAINING.md) for sample JSON, secure API configuration, evaluation methodology and scientific limitations.
 
+### Streamlit supervised training dashboard
+
+The Streamlit interface provides a **Supervised Dataset** tab. Upload a JSON dataset in the same schema used by `ai-hub model train-data`. The dashboard validates numeric features and class labels before sending the upload, then displays training/holdout sample counts, held-out accuracy and cross-entropy. It refuses files larger than 1 MB and requires HTTPS for remote API connections (HTTP is allowed on localhost or the internal Docker `api` service).
+
+```bash
+docker compose --profile ui up --build -d
+# Open http://127.0.0.1:8501
+```
+
+The dashboard inherits `AI_HUB_API_KEY` and `AI_HUB_API_URL` from its environment. It is a prototype interface, not a multi-user access-control system; keep it on a trusted local network.
+
 ### Direct API Calls
 
 ```bash
