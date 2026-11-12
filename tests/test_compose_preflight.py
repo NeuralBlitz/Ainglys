@@ -33,6 +33,9 @@ def fixture_document():
             "AI_HUB_API_URL": "http://api:8000",
         },
         "depends_on": {"api": {"condition": "service_healthy"}},
+        "healthcheck": {"test": [
+            "CMD", "curl", "--fail", "http://127.0.0.1:8501/_stcore/health"
+        ]},
     })
     return {"services": {"api": api, "ui": ui}}
 
@@ -69,6 +72,10 @@ def test_bad_core_configuration_rejected(mutate, expected):
     (lambda c: c["services"]["ui"]["environment"].update(AI_HUB_API_URL="https://untrusted"), "internal"),
     (lambda c: c["services"]["ui"].update(depends_on={}), "healthy"),
     (lambda c: c["services"]["ui"].update(build={"target": "development"}), "production"),
+    (lambda c: c["services"]["ui"].update(healthcheck={}), "Streamlit healthcheck"),
+    (lambda c: c["services"]["ui"]["healthcheck"].update(
+        test=["CMD", "curl", "http://127.0.0.1:8000/health"]
+    ), "8501"),
 ])
 def test_unsafe_ui_configuration_rejected(mutate, expected):
     data = fixture_document()
