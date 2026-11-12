@@ -1,7 +1,7 @@
 """
 Dataset Versioning and Management
 
-Provides Git-like versioning for datasets with:
+Provides Git-like versioning for datasets with safe, non-pickle snapshots:
 - Version control
 - Lineage tracking
 - Differential updates
@@ -10,12 +10,15 @@ Provides Git-like versioning for datasets with:
 
 import hashlib
 import json
-import shutil
+import re
+from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, asdict
-import pickle
+from .safe_dataset_codec import (
+    MAX_DATASET_BYTES, decode_dataset, encode_dataset, file_suffix,
+)
 
 
 @dataclass
@@ -31,6 +34,8 @@ class DatasetVersion:
     metadata: Dict[str, Any]
     tags: List[str]
     description: str
+    storage_format: str = "legacy-pickle"
+    data_file: str = ""
 
 
 @dataclass
@@ -41,6 +46,9 @@ class DatasetDiff:
     removed_samples: int
     modified_samples: int
     feature_changes: List[str]
+
+
+_SAFE_DATASET_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\\Z")
 
 
 class DatasetRepository:
@@ -99,21 +107,21 @@ class DatasetRepository:
 
     def _compute_checksum(self, data_path: Path) -> str:
         """Compute checksum of dataset."""
-        hash_md5 = hashlib.md5()
+        sha256 = hashlib.sha256()
 
         if data_path.is_file():
             with open(data_path, "rb") as f:
                 for chunk in iter(lambda: f.read(4096), b""):
-                    hash_md5.update(chunk)
+                    sha256.update(chunk)
         else:
             # For directories, hash all files
             for file_path in sorted(data_path.rglob("*")):
                 if file_path.is_file():
                     with open(file_path, "rb") as f:
                         for chunk in iter(lambda: f.read(4096), b""):
-                            hash_md5.update(chunk)
+                            sha256.update(chunk)
 
-        return hash_md5.hexdigest()[:16]
+        return sha256.hexdigest()
 
     def commit(
         self,
@@ -136,14 +144,28 @@ class DatasetRepository:
         Returns:
             Version ID
         """
-        # Save data
-        version_id = (
-            f"v{len(self.versions) + 1}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        )
-        data_path = self.data_dir / f"{name}_{version_id}.pkl"
+        if not isinstance(name, str) or not _SAFE_DATASET_NAME.fullmatch(name):
+            raise ValueError("Dataset name must be a safe 1-64-character identifier")
+        if metadata is not None and not isinstance(metadata, dict):
+            raise TypeError("Dataset metadata must be a JSON-compatible mapping")
+        if tags is not None and (
+            not isinstance(tags, list) or any(not isinstance(t, str) for t in tags)
+        ):
+            raise TypeError("Dataset tags must be a list of strings")
+        # Reject metadata that would fail the index write before creating files.
+        json.dumps({"metadata": metadata or {}, "tags": tags or []}, allow_nan=False)
 
-        with open(data_path, "wb") as f:
-            pickle.dump(data, f)
+        blob, storage_format = encode_dataset(data)
+        version_id = (
+            f"v{len(self.versions) + 1}_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:10]}"
+        )
+        data_file = f"{name}_{version_id}{file_suffix(storage_format)}"
+        data_path = self.data_dir / data_file
+        # Exclusive creation prevents accidental overwriting of an existing
+        # snapshot or a pre-existing symlink on local filesystems.
+        with data_path.open("xb") as stream:
+            stream.write(blob)
 
         # Compute checksum
         checksum = self._compute_checksum(data_path)
@@ -166,6 +188,8 @@ class DatasetRepository:
             metadata=metadata or {},
             tags=tags or [],
             description=description,
+            storage_format=storage_format,
+            data_file=data_file,
         )
 
         self.versions[version_id] = version
@@ -179,19 +203,34 @@ class DatasetRepository:
         return version_id
 
     def checkout(self, version_id: str) -> Any:
-        """Checkout a specific dataset version."""
-        if version_id not in self.versions:
+        """Verify integrity then load a safe dataset snapshot.
+
+        Historic pickle snapshots are intentionally rejected. Never execute
+        arbitrary pickles from a repository, even with a checksum.
+        """
+        version = self.versions.get(version_id)
+        if version is None:
             raise ValueError(f"Version {version_id} not found")
-
-        # Find data file
-        data_files = list(self.data_dir.glob(f"*{version_id}.pkl"))
-        if not data_files:
-            raise ValueError(f"Data file for version {version_id} not found")
-
-        with open(data_files[0], "rb") as f:
-            data = pickle.load(f)
-
-        return data
+        if version.storage_format == "legacy-pickle":
+            raise ValueError(
+                "Historic pickle datasets cannot be loaded safely. "
+                "Migrate trusted originals to a supported format offline."
+            )
+        suffix = file_suffix(version.storage_format)
+        file_name = version.data_file
+        if (not isinstance(file_name, str) or not file_name
+                or file_name != Path(file_name).name
+                or not file_name.endswith(suffix)):
+            raise ValueError("Snapshot file name is invalid")
+        data_path = self.data_dir / file_name
+        if data_path.is_symlink() or not data_path.is_file():
+            raise ValueError("Snapshot is missing or is an unsafe symlink")
+        if data_path.stat().st_size > MAX_DATASET_BYTES:
+            raise ValueError("Dataset snapshot exceeds the allowed size")
+        blob = data_path.read_bytes()
+        if hashlib.sha256(blob).hexdigest() != version.checksum:
+            raise ValueError("Dataset snapshot checksum mismatch")
+        return decode_dataset(blob, version.storage_format)
 
     def log(self, max_entries: int = 10) -> List[DatasetVersion]:
         """Get version history (like git log)."""
