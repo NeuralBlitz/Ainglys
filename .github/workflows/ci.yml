@@ -24,6 +24,8 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose -f compose.core.yml config --quiet
+          AI_HUB_API_KEYS_JSON='[{"id":"ci-reader","sha256":"0000000000000000000000000000000000000000000000000000000000000000","scopes":["read"]}]' \
+            docker compose -f docker-compose.yml -f compose.scoped-keys.yml config --quiet
 
   extended-tests:
     name: Extended Python suite (3.11)
@@ -80,6 +82,21 @@ jobs:
           code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/models)
           test "$code" = 401
           curl --fail --silent -H "X-API-Key: $AI_HUB_API_KEY" http://127.0.0.1:8000/models
+      - name: Verify scoped credentials against running Docker API
+        run: |
+          export CI_READ_TOKEN="ci-scoped-read-client-credential-32-characters"
+          export AI_HUB_API_KEYS_JSON="$(python -c 'import os,hashlib,json; print(json.dumps([{"id":"ci-reader","sha256":hashlib.sha256(os.environ["CI_READ_TOKEN"].encode()).hexdigest(),"scopes":["read"]}]))')"
+          docker compose -f docker-compose.yml -f compose.scoped-keys.yml up -d --no-deps --no-build --force-recreate api
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null; then break; fi
+            sleep 2
+          done
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "X-API-Key: $CI_READ_TOKEN" http://127.0.0.1:8000/models)
+          test "$code" = 200
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "X-API-Key: $AI_HUB_API_KEY" http://127.0.0.1:8000/models)
+          test "$code" = 401
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H "X-API-Key: $CI_READ_TOKEN" -H "Content-Type: application/json" -d '{}' http://127.0.0.1:8000/train)
+          test "$code" = 403
       - name: Capture logs and remove container
         if: always()
         run: |
