@@ -17,11 +17,11 @@ docker compose config --quiet
 docker compose --profile ui config --quiet
 ```
 
-The script runs `docker compose config --format json` and checks the rendered configuration. It fails when a requested service is missing, the build target changes from `production`, the API key is absent/short, extra services appear, a published port is not bound to localhost, unapproved host bind mounts appear, capabilities are not dropped, `no-new-privileges` or init/restart configuration is missing, API health checks are disabled, model storage is not a named volume, or the Streamlit UI no longer uses the internal API service with healthy startup ordering.
+The script runs `docker compose config --format json` and checks the rendered configuration. When `--ui` is supplied, it also requires a dedicated Streamlit `/_stcore/health` probe on port **8501** rather than inheriting the API image's healthcheck on port 8000. It fails when a requested service is missing, the build target changes from `production`, the API key is absent/short, extra services appear, a published port is not bound to localhost, unapproved host bind mounts appear, capabilities are not dropped, `no-new-privileges` or init/restart configuration is missing, API health checks are disabled, model storage is not a named volume, or the Streamlit UI no longer uses the internal API service with healthy startup ordering.
 
 Expected local endpoints: `127.0.0.1:8000` (API) and, when using `--profile ui`, `127.0.0.1:8501` (UI). The script never prints rendered configuration or Compose stderr because they can contain secrets.
 
-This check is included in the repository's GitHub Actions integrity job and is unit-tested on Python 3.11 and 3.12.
+This check is included in the repository's GitHub Actions integrity job and is unit-tested on Python 3.11 and 3.12. The Docker smoke job also starts both API and optional Streamlit services, checks each service's actual HTTP health endpoint, and verifies scoped API authorization.
 
 ## Start the core deployment
 
