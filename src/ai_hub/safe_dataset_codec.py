@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from io import BytesIO, StringIO
 import json
-import math
 from typing import Any
 
 import numpy as np
