@@ -61,6 +61,27 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Credentials and local private state (never send to Docker build context)
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.sqlite
+*.sqlite3
+id_rsa*
+id_ed25519*
+.ssh/
+.aws/
+.azure/
+.gcp/
+.secrets/
+secrets/
+credentials/
+test-results/
+
 # Docker
 Dockerfile*
 docker-compose*.yml
