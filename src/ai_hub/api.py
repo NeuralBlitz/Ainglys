@@ -9,6 +9,7 @@ import math
 import threading
 import logging
 from .ml_engine import MLEngine
+from .supervised import SupervisedTrainRequest, stratified_holdout_indices
 from .api_auth import require_api_key, validate_model_name
 from pathlib import Path
 
@@ -108,7 +109,7 @@ def root():
         "message": "AI Hub API",
         "version": "0.1.0",
         "status": "running",
-        "endpoints": ["/train", "/predict", "/status", "/save", "/load", "/models"],
+        "endpoints": ["/train", "/train/supervised", "/predict", "/status", "/save", "/load", "/models"],
     }
 
 
@@ -155,6 +156,81 @@ def train(request: TrainRequest):
     except Exception:
         logger.exception("Model training failed")
         raise HTTPException(status_code=500, detail="Training failed")
+    finally:
+        _training_lock.release()
+
+
+@app.post("/train/supervised", dependencies=[Depends(require_api_key)])
+def train_supervised(request: SupervisedTrainRequest):
+    """Train a small classifier on supplied numeric data and evaluate a holdout.
+
+    Validation records are never passed to the training optimizer; the
+    synthetic-demo endpoint remains available separately at POST /train.
+    """
+    global engine
+    if not _training_lock.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Training already in progress")
+    try:
+        train_indices, val_indices = stratified_holdout_indices(
+            request.labels, request.validation_fraction, request.seed
+        )
+        inputs = torch.tensor(request.features, dtype=torch.float32)
+        targets = torch.tensor(request.labels, dtype=torch.long)
+        train_x = inputs[train_indices]
+        train_y = targets[train_indices]
+        validation_x = inputs[val_indices]
+        validation_y = targets[val_indices]
+        classes = len(set(request.labels))
+        feature_dim = inputs.shape[1]
+
+        # Seed model initialization and training, without leaving changes in
+        # the process-global torch CPU/GPU random state after the request.
+        rng_devices = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
+        with torch.random.fork_rng(devices=rng_devices):
+            torch.manual_seed(request.seed)
+            if rng_devices:
+                torch.cuda.manual_seed_all(request.seed)
+            candidate = MLEngine(feature_dim, request.hidden_dim, classes)
+            training = candidate.train(
+                train_x, train_y,
+                epochs=request.epochs,
+                learning_rate=request.learning_rate,
+            )
+
+        validation = candidate.evaluate(validation_x, validation_y)
+        with torch.no_grad():
+            logits = candidate.predict(validation_x)
+            validation_loss = torch.nn.functional.cross_entropy(
+                logits, validation_y.to(logits.device)
+            ).item()
+        # Commit only after both training and held-out evaluation succeed.
+        engine = candidate
+        return {
+            "status": "trained",
+            "data_source": "user_provided_supervised",
+            "model_info": {
+                "input_dim": feature_dim,
+                "hidden_dim": request.hidden_dim,
+                "output_dim": classes,
+            },
+            "dataset": {
+                "samples": len(request.labels),
+                "training_samples": len(train_indices),
+                "validation_samples": len(val_indices),
+                "classes": classes,
+                "validation_fraction_requested": request.validation_fraction,
+                "random_seed": request.seed,
+                "split_strategy": "stratified_holdout",
+            },
+            "training": training,
+            "validation": {
+                "accuracy": validation["accuracy"],
+                "cross_entropy": validation_loss,
+            },
+        }
+    except Exception:
+        logger.exception("Supervised model training failed")
+        raise HTTPException(status_code=500, detail="Supervised training failed")
     finally:
         _training_lock.release()
 
