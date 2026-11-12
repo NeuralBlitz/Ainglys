@@ -464,10 +464,18 @@ class TestIntegration:
 
     def test_integration_with_security(self):
         """Test integration hub with security."""
-        from ai_hub.security import authenticate_user, fake_users_db
+        from ai_hub.security import authenticate_user, hash_password
 
-        # Authenticate researcher
-        user = authenticate_user(fake_users_db, "researcher", "research123")
+        # Provision an isolated test identity, never a default runtime account.
+        test_users = {
+            "researcher": {
+                "username": "researcher",
+                "role": "researcher",
+                "scopes": ["read", "write", "train", "predict"],
+                "hashed_password": hash_password("fixture-only-password"),
+            }
+        }
+        user = authenticate_user(test_users, "researcher", "fixture-only-password")
         assert user is not None
 
         # Researcher should be able to use integration hub
