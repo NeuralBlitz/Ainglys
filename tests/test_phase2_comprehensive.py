@@ -336,7 +336,7 @@ class TestPhase2Integration:
     def test_distributed_training_with_serving(self):
         """Test distributed training to serving pipeline."""
         from ai_hub.distributed import DistributedConfig
-        from ai_hub.serving import ModelServer
+        from ai_hub.serving import ModelServer, ServingConfig
 
         # Create distributed config
         dist_config = DistributedConfig(num_workers=1, use_gpu=False, epochs=1)
