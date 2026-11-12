@@ -4,8 +4,10 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+import os
 
 import pytest
+import ai_hub.api as api_module
 from fastapi.testclient import TestClient
 
 from ai_hub.api import app
@@ -50,6 +52,7 @@ def scoped_env(monkeypatch):
     monkeypatch.setenv("AI_HUB_TRAININGS_PER_MINUTE", "60")
     request_quota.reset()
     principal_request_quotas.reset()
+    monkeypatch.setattr(api_module, "engine", None)
     yield monkeypatch
     request_quota.reset()
     principal_request_quotas.reset()
@@ -164,7 +167,7 @@ def test_keyring_records_only_store_hashes(scoped_env):
     items = load_keyring()
     assert len(items) == len(base_registry())
     assert all(isinstance(p, APIPrincipal) and len(p.fingerprint) == 64 for p in items)
-    assert READER_KEY not in scoped_env.getenv("AI_HUB_API_KEYS_JSON") if hasattr(scoped_env, "getenv") else True
+    assert READER_KEY not in os.environ["AI_HUB_API_KEYS_JSON"]
 
 
 def test_unknown_route_policy_is_fail_closed():
@@ -201,7 +204,7 @@ def test_per_key_quota_pool_is_thread_safe_and_isolated():
     assert pool.check(READER_KEY, training=False, request_limit=5, training_limit=5) is None
 
 
-def test_token_sha256_requires_entropy_sized_string():
+def test_token_sha256_requires_minimum_key_length():
     with pytest.raises(ValueError):
         token_sha256("short")
     assert token_sha256(READER_KEY) == hashlib.sha256(READER_KEY.encode()).hexdigest()
