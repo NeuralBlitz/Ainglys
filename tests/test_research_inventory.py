@@ -97,6 +97,16 @@ def test_missing_docs_tests_and_manifests_are_reported(tmp_path):
     assert main(["--root", str(tmp_path), "--strict-layout"]) == 1
 
 
+
+
+def test_readme_only_gap_blocks_strict_layout(tmp_path):
+    project(tmp_path, "missing_readme_only", readme=False)
+    result = build_inventory(tmp_path)
+    assert result["totals"]["missing_readmes"] == 1
+    assert result["totals"]["missing_tests"] == 0
+    assert main(["--root", str(tmp_path), "--strict-layout"]) == 1
+
+
 def test_inventory_is_deterministic_and_sorted(tmp_path):
     project(tmp_path, "zeta")
     project(tmp_path, "alpha")
