@@ -123,6 +123,13 @@ def inspect_core_config(config: dict[str, Any], *, include_ui: bool) -> list[str
                        for v in service.get("volumes", []) if isinstance(v, dict)):
                 errors.append("api: model persistence must use a named volume")
         else:
+            ui_health = service.get("healthcheck") or {}
+            if not isinstance(ui_health, dict) or not ui_health.get("test") or ui_health.get("disable"):
+                errors.append("ui: Streamlit healthcheck must be enabled")
+            elif "/_stcore/health" not in " ".join(
+                str(x) for x in ui_health["test"] if x is not None
+            ) or "8501" not in " ".join(str(x) for x in ui_health["test"]):
+                errors.append("ui: healthcheck must query port 8501 /_stcore/health")
             if environment.get("AI_HUB_API_URL") != "http://api:8000":
                 errors.append("ui: API destination must use internal service DNS")
             dependency = (service.get("depends_on") or {}).get("api")
