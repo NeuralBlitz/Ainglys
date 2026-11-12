@@ -16,7 +16,7 @@ from pathlib import Path
 from .ml_engine import MLEngine
 
 console = Console()
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = os.environ.get("AI_HUB_API_URL", "http://localhost:8000")
 
 
 @click.group()
@@ -149,6 +149,68 @@ def train_model(input_dim, hidden_dim, output_dim, epochs, api):
         console.print(
             f"[bold green]Training complete! Final loss: {result['final_loss']:.4f}[/bold green]"
         )
+
+
+@model.command("train-data")
+@click.argument("dataset_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--api-url", default=None, help="Override AI_HUB_API_URL for this request")
+def train_data(dataset_file: Path, api_url: str | None):
+    """Train from a bounded JSON dataset using held-out validation.
+
+    The JSON document must contain features and contiguous integer labels.
+    Sensitive training data is sent only to the selected API URL.
+    """
+    from pydantic import ValidationError
+    from .supervised import SupervisedTrainRequest
+
+    api_key = os.environ.get("AI_HUB_API_KEY", "")
+    if len(api_key) < 32:
+        raise click.ClickException("Configure AI_HUB_API_KEY (32+ characters) first")
+    if dataset_file.stat().st_size > 1_000_000:
+        raise click.ClickException("Dataset JSON must be no larger than 1 MB")
+    try:
+        request = SupervisedTrainRequest.model_validate(
+            json.loads(dataset_file.read_text(encoding="utf-8"))
+        )
+    except (ValidationError, ValueError, OSError) as exc:
+        raise click.ClickException(f"Invalid training dataset: {exc}") from exc
+
+    from urllib.parse import urlsplit
+
+    url = (api_url or API_BASE_URL).rstrip("/")
+    parsed = urlsplit(url)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or (parsed.scheme == "http" and parsed.hostname not in local_hosts)):
+        raise click.ClickException(
+            "Use HTTPS for remote servers or HTTP on localhost only; "
+            "credentials and query fragments in API URLs are not permitted"
+        )
+    try:
+        response = _api_session.post(
+            f"{url}/train/supervised",
+            json=request.model_dump(),
+            headers={"X-API-Key": api_key},
+            timeout=(10, 180),
+            allow_redirects=False,
+        )
+        response.raise_for_status()
+        result = response.json()
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        raise click.ClickException(f"Supervised training request failed: {exc}") from exc
+
+    dataset = result["dataset"]
+    validation = result["validation"]
+    console.print(Panel.fit("[bold green]Supervised training completed[/bold green]"))
+    table = Table(title="Held-out validation (not training metrics)")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Training samples", str(dataset["training_samples"]))
+    table.add_row("Validation samples", str(dataset["validation_samples"]))
+    table.add_row("Holdout accuracy", f"{validation['accuracy']:.4f}")
+    table.add_row("Holdout cross-entropy", f"{validation['cross_entropy']:.4f}")
+    console.print(table)
 
 
 @model.command("predict")
