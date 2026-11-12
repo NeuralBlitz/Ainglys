@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from ai_hub.dashboard_training import MAX_UPLOAD_BYTES, parse_supervised_upload
+from ai_hub.dashboard_training import MAX_UPLOAD_BYTES, parse_supervised_upload, safe_training_api_base
 
 
 def dataset():
@@ -49,3 +49,22 @@ def test_does_not_write_upload_to_disk(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     parse_supervised_upload(json.dumps(dataset()).encode())
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1:8000", "http://localhost:8000",
+    "http://api:8000", "https://training.example.com",
+])
+def test_dashboard_allows_local_or_https_api(url):
+    assert safe_training_api_base(url) == url
+
+
+@pytest.mark.parametrize("url", [
+    "http://training.example.com",
+    "http://api:8000@evil.example.com",
+    "file:///tmp/data", "http://localhost:8000/path",
+    "http://localhost:8000?token=secret", "http://localhost:8000#redirect",
+])
+def test_dashboard_refuses_insecure_api_url(url):
+    with pytest.raises(ValueError):
+        safe_training_api_base(url)
