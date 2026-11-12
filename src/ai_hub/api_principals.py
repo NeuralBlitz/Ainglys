@@ -1,7 +1,8 @@
 """Environment-provisioned, scoped API principals for small Ainglys deployments.
 
-An optional JSON keyring enables immediate credential revocation by configuration
-change without persisting plaintext tokens or using the legacy shared master key.
+An optional JSON keyring enables credential revocation once the running
+process receives updated configuration, without persisting plaintext tokens
+or using the legacy shared master key.
 This is a bridge to an external identity system, not production IAM.
 """
 from __future__ import annotations
