@@ -548,6 +548,10 @@ cd ../newnn && pip install -e .                                # Neuromorphic
 cd ../gcaa && pip install -e .                                 # Cellular Automata
 ```
 
+## File snapshot manager integrity
+
+The separate `DatasetVersionManager` file-snapshot workflow validates manifest paths and SHA-256 digests before **both** restore and diff operations. It denies symlinked sources/targets, excludes hidden credentials and VCS folders, and bounds snapshot size. See [File Snapshot Integrity and Limitations](docs/FILE_SNAPSHOT_INTEGRITY.md). It is not a signed, multi-user, or fully transactional backup service.
+
 ## Safe dataset versioning
 
 The `DatasetRepository` storage path now uses only non-executable NumPy, Pandas JSON or standard JSON snapshots. New versions are SHA-256 checked, capped at 32 MiB, and reject unsafe filenames and symlinks. **Historic `.pkl` versions no longer load automatically**, even if stored in a local repository. Read [Safe Dataset Snapshots and Legacy Migration](docs/SAFE_DATASET_SNAPSHOTS.md) before reopening an older dataset registry.
