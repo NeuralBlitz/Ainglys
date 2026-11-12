@@ -1,0 +1,42 @@
+name: Ainglys CodeQL Security Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "29 7 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze-python:
+    name: CodeQL Python security-extended
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Ainglys
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyze Python code
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:python"
