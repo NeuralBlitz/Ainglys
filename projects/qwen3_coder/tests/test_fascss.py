@@ -11,9 +11,9 @@ def test_stacked_modules_with_different_input_hidden_dimensions():
     output = model(torch.randn(5, 10))
     assert output.shape == (5, 3)
     assert torch.isfinite(output).all()
-    assert model.modules[0].branches[0][0].in_features == 10
-    assert model.modules[1].branches[0][0].in_features == 16
-    assert model.modules[2].branches[0][0].in_features == 16
+    assert model.blocks[0].branches[0][0].in_features == 10
+    assert model.blocks[1].branches[0][0].in_features == 16
+    assert model.blocks[2].branches[0][0].in_features == 16
 
 
 @pytest.mark.parametrize("num_modules", [1, 2, 5])
@@ -27,8 +27,8 @@ def test_gradients_reach_first_and_last_branches():
     model = FASCSS(input_dim=7, hidden_dim=12, output_dim=2, num_modules=3)
     prediction = model(torch.randn(6, 7))
     prediction.square().mean().backward()
-    first = model.modules[0].branches[0][0].weight.grad
-    last = model.modules[-1].branches[0][0].weight.grad
+    first = model.blocks[0].branches[0][0].weight.grad
+    last = model.blocks[-1].branches[0][0].weight.grad
     assert first is not None and torch.isfinite(first).all()
     assert last is not None and torch.isfinite(last).all()
 
