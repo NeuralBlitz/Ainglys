@@ -14,6 +14,8 @@ def test_stacked_modules_with_different_input_hidden_dimensions():
     assert model.blocks[0].branches[0][0].in_features == 10
     assert model.blocks[1].branches[0][0].in_features == 16
     assert model.blocks[2].branches[0][0].in_features == 16
+    # PyTorch's inherited modules() iterator must remain available.
+    assert any(child is model.blocks for child in model.modules())
 
 
 @pytest.mark.parametrize("num_modules", [1, 2, 5])
