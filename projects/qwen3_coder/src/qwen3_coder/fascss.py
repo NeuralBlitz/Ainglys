@@ -49,10 +49,18 @@ class FASCSS(nn.Module):
     ):
         super().__init__()
 
+        if num_modules < 1:
+            raise ValueError("num_modules must be a positive integer")
+        # The first block consumes the external input width. Subsequent
+        # blocks receive the prior block's hidden_dim-wide output.
         self.modules = nn.ModuleList(
             [
-                SelfConfiguringModule(input_dim, hidden_dim, hidden_dim)
-                for _ in range(num_modules)
+                SelfConfiguringModule(
+                    input_dim if index == 0 else hidden_dim,
+                    hidden_dim,
+                    hidden_dim,
+                )
+                for index in range(num_modules)
             ]
         )
 
