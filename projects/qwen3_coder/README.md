@@ -16,13 +16,8 @@ Only `CoreModule` is exported from package-level `__init__.py`. Specialized clas
 ```python
 import torch
 from qwen3_coder import CoreModule
-from qwen3_coder.fascss import FASCSS
-
 baseline = CoreModule(10, 20, 5)
 assert baseline(torch.randn(2, 10)).shape == (2, 5)
-
-prototype = FASCSS(input_dim=10, hidden_dim=20, output_dim=5)
-assert prototype(torch.randn(2, 10)).shape == (2, 5)
 ```
 
 The examples check tensor contracts only. They are not guarantees of complete training, calibrated outputs or convergence.
@@ -33,6 +28,7 @@ The examples check tensor contracts only. They are not guarantees of complete tr
 - The repository package description references research papers, but paper-by-paper implementations, source-attributed claims and matching validation results have not been independently verified.
 - An adjacency-shaped tensor or trained gating network is not, by itself, evidence of a causal graph, novel learning paradigm, self-improvement or state-of-the-art performance.
 - Current `tests/test_core.py` verifies the generic baseline's initialization and output shape; it does not exercise ACA, ALF or FASCSS.
+- `FASCSS` currently constructs each stacked block using the original `input_dim` while earlier blocks emit `hidden_dim`; for `num_modules > 1` and differing input/hidden sizes this can cause a tensor-dimension error. This is an open prototype defect, not a validated default path.
 
 ## Priority engineering work
 
