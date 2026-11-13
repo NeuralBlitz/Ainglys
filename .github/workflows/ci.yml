@@ -164,4 +164,7 @@ jobs:
           JWT_SECRET_KEY: test-only-jwt-secret-at-least-32-characters-long
           PYTHONPATH: projects/qwen3_coder/src
         run: |
-          python -m pytest -q tests/test_api.py tests/test_ml_engine.py projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py tests/test_supervised_training.py tests/test_supervised_cli.py tests/test_dashboard_training.py tests/test_request_quota.py tests/test_scoped_api_principals.py tests/test_dataset_repository_safe.py tests/test_dataset_version_manager_security.py tests/test_compose_preflight.py tests/test_research_inventory.py projects/qwen3_coder/tests/test_core.py projects/qwen3_coder/tests/test_fascss.py
+          python -m pytest -q tests/test_api.py tests/test_ml_engine.py projects/acca/tests/test_core.py projects/acca/tests/test_causal_math.py tests/test_supervised_training.py tests/test_supervised_cli.py tests/test_dashboard_training.py tests/test_request_quota.py tests/test_scoped_api_principals.py tests/test_dataset_repository_safe.py tests/test_dataset_version_manager_security.py tests/test_compose_preflight.py tests/test_research_inventory.py
+          # Test each research project in its own pytest process: ACCA and
+          # qwen3_coder both have a file named test_core.py.
+          python -m pytest -q projects/qwen3_coder/tests/test_core.py projects/qwen3_coder/tests/test_fascss.py
