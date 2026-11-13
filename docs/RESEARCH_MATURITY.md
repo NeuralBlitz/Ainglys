@@ -2,7 +2,7 @@
 
 **Scope:** only the 39 research subprojects within `NeuralBlitz/Ainglys/projects/`. The `Advanced-Research` Git submodule is pinned here but has its own independent provenance and is deliberately not audited by this tool.
 
-## Current repository evidence (2026-11-12 baseline)
+## Initial repository evidence (2026-11-12, before README remediation)
 
 A source-tree inspection identified:
 
@@ -12,9 +12,11 @@ A source-tree inspection identified:
 | Subprojects with at least one `tests/test_*.py` | 39 |
 | Subprojects with only a `core.py` implementation module | 36 |
 | Subprojects with additional implementation modules | 3 |
-| Subprojects without a project-level `README.md` | 7 |
+| Subprojects without a project-level `README.md` at the initial audit | 7 |
 
 The three packages with additional implementation modules are **ACCA**, **ADAPT**, and **qwen3_coder**. Their existence is not evidence that their research hypotheses have been independently validated. Some additional modules are exploratory or schematic. The remaining packages predominantly expose two-layer `torch.nn.Linear` test scaffolds; their tests usually check construction and tensor output shape.
+
+The missing project READMEs were supplied by the follow-up documentation remediation. The automated `--strict-layout` CI gate now requires source code, a package manifest, tests, **and a project-level README** for every Ainglys subproject. Regenerate the inventory at the exact checkout to verify the new documentation count instead of treating this initial baseline as current.
 
 These are *static observations*, not a complete algorithm review, model evaluation, causal identification analysis, or a reproducibility certificate. Counts should be regenerated whenever the tree changes.
 
