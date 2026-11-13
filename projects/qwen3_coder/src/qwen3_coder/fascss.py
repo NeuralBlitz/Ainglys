@@ -49,17 +49,25 @@ class FASCSS(nn.Module):
     ):
         super().__init__()
 
-        self.modules = nn.ModuleList(
+        if num_modules < 1:
+            raise ValueError("num_modules must be a positive integer")
+        # The first block consumes the external input width. Subsequent
+        # blocks receive the prior block's hidden_dim-wide output.
+        self.blocks = nn.ModuleList(
             [
-                SelfConfiguringModule(input_dim, hidden_dim, hidden_dim)
-                for _ in range(num_modules)
+                SelfConfiguringModule(
+                    input_dim if index == 0 else hidden_dim,
+                    hidden_dim,
+                    hidden_dim,
+                )
+                for index in range(num_modules)
             ]
         )
 
         self.output = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x: torch.Tensor):
-        for module in self.modules:
+        for module in self.blocks:
             x = module(x)
         return self.output(x)
 
