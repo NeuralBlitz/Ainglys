@@ -363,7 +363,8 @@ def list_models():
 @app.delete("/models/{model_name}", dependencies=[Depends(require_api_key)])
 def delete_model(model_name: str):
     try:
-        # Apply the same symlink and identifier protections as save/load.
+        # Validate the route parameter at the API boundary before filesystem access.
+        validate_model_name(model_name)
         model_path, metadata_path = _model_artifacts(model_name)
         if not model_path.is_file():
             raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
