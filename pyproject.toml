@@ -5,7 +5,7 @@ description = "Unified AI/ML Hub with CLI, API, and ML components"
 authors = [{name = "NeuralBlitz"}]
 requires-python = ">=3.11"
 dependencies = [
-    "torch>=2.0.0",
+    "torch>=2.15.0",
     "numpy>=1.24.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.54.0",
