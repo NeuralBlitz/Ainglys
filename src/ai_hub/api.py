@@ -335,15 +335,26 @@ def load_model(model_name: str):
 
 @app.get("/models", dependencies=[Depends(require_api_key)])
 def list_models():
+    """List regular model artifacts without trusting unvalidated metadata."""
     models = []
     for model_file in MODELS_DIR.glob("*.pt"):
         model_name = model_file.stem
-        metadata_path = MODELS_DIR / f"{model_name}.json"
+        try:
+            checked_model, metadata_path = _model_artifacts(model_name)
+        except HTTPException:
+            # Reject invalid names and symlinked model/metadata paths.
+            continue
+        if not checked_model.is_file():
+            continue
 
-        model_info = {"name": model_name, "path": str(model_file)}
-        if metadata_path.exists():
-            with open(metadata_path, "r") as f:
-                model_info["metadata"] = json.load(f)
+        model_info = {"name": model_name, "path": str(checked_model)}
+        if metadata_path.is_file():
+            try:
+                # Reuse the same size, format and dimension validation as /load.
+                model_info["metadata"] = _load_model_metadata(model_name, metadata_path)
+            except (HTTPException, OSError, UnicodeError):
+                # A bad sidecar must not crash inventory or leak linked files.
+                pass
         models.append(model_info)
 
     return {"models": models, "count": len(models)}
@@ -352,22 +363,21 @@ def list_models():
 @app.delete("/models/{model_name}", dependencies=[Depends(require_api_key)])
 def delete_model(model_name: str):
     try:
-        validate_model_name(model_name)
-        model_path = MODELS_DIR / f"{model_name}.pt"
-        metadata_path = MODELS_DIR / f"{model_name}.json"
-
-        if not model_path.exists():
+        # Apply the same symlink and identifier protections as save/load.
+        model_path, metadata_path = _model_artifacts(model_name)
+        if not model_path.is_file():
             raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
 
         model_path.unlink()
-        if metadata_path.exists():
+        if metadata_path.is_file():
             metadata_path.unlink()
 
         return {"status": "deleted", "model_name": model_name}
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Model deletion failed")
+        raise HTTPException(status_code=500, detail="Model deletion failed")
 
 
 def create_app() -> FastAPI:
